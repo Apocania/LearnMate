@@ -1,0 +1,3 @@
+class LearningReportRepository:
+  pass
+

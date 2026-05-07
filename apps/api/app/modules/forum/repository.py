@@ -1,0 +1,3 @@
+class ForumRepository:
+  pass
+

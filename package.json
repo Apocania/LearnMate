@@ -1,0 +1,15 @@
+{
+  "name": "guochuang",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:web": "npm --prefix apps/web run dev",
+    "build:web": "npm --prefix apps/web run build",
+    "preview:web": "npm --prefix apps/web run preview"
+  },
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ]
+}
+
