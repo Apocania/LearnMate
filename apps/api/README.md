@@ -1,6 +1,6 @@
-# API
+# LearnMate API
 
-FastAPI 后端应用。
+LearnMate 的 FastAPI 后端应用。
 
 ## Development
 
@@ -18,4 +18,3 @@ uvicorn app.main:app --reload
 http://localhost:8000/api/health
 http://localhost:8000/docs
 ```
-

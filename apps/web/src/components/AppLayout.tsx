@@ -13,8 +13,8 @@ export function AppLayout() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <h1 className="brand-title">智能伴学系统</h1>
-          <p className="brand-subtitle">Guochuang Learning</p>
+          <h1 className="brand-title">LearnMate</h1>
+          <p className="brand-subtitle">AI Learning Companion</p>
         </div>
         <nav className="nav-list">
           {navItems.map((item) => (
@@ -30,4 +30,3 @@ export function AppLayout() {
     </div>
   );
 }
-

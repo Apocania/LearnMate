@@ -1,7 +1,7 @@
 [project]
-name = "guochuang-api"
+name = "learnmate-api"
 version = "0.1.0"
-description = "FastAPI backend for Guochuang intelligent learning companion."
+description = "FastAPI backend for LearnMate intelligent learning companion."
 requires-python = ">=3.11"
 
 [tool.ruff]
@@ -11,4 +11,3 @@ target-version = "py311"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-

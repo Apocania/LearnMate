@@ -1,2 +1,1 @@
-"""Guochuang API application package."""
-
+"""LearnMate API application package."""

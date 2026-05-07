@@ -5,11 +5,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-  app_name: str = "Guochuang API"
+  app_name: str = "LearnMate API"
   app_version: str = "0.1.0"
   app_env: str = "development"
 
-  database_url: str = "postgresql+psycopg://guochuang:guochuang@localhost:5432/guochuang"
+  database_url: str = "postgresql+psycopg://learnmate:learnmate@localhost:5432/learnmate"
   redis_url: str = "redis://localhost:6379/0"
 
   jwt_secret: str = Field(default="change-me-in-production")
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
   minio_endpoint: str = "http://localhost:9000"
   minio_access_key: str = "minioadmin"
   minio_secret_key: str = "minioadmin"
-  minio_bucket: str = "guochuang-materials"
+  minio_bucket: str = "learnmate-materials"
 
   llm_provider: str = "openai-compatible"
   llm_api_key: str = ""
@@ -40,4 +40,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

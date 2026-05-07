@@ -1,6 +1,6 @@
-# Web
+# LearnMate Web
 
-React + TypeScript + Vite 前端应用。
+LearnMate 的 React + TypeScript + Vite 前端应用。
 
 ## Development
 
@@ -15,4 +15,3 @@ npm run dev
 ```text
 http://localhost:5173
 ```
-

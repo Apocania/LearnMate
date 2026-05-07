@@ -1,6 +1,6 @@
-# Guochuang Intelligent Learning Companion
+# LearnMate
 
-`guochuang` 是一个面向师生教学场景的智能伴学系统平台。
+`LearnMate` 是一个面向师生教学场景的智能学习伙伴平台。
 
 第一版技术栈：
 
@@ -50,4 +50,3 @@ uvicorn app.main:app --reload
 cd deploy
 docker compose up -d
 ```
-

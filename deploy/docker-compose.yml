@@ -1,11 +1,11 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: guochuang-postgres
+    container_name: learnmate-postgres
     environment:
-      POSTGRES_DB: guochuang
-      POSTGRES_USER: guochuang
-      POSTGRES_PASSWORD: guochuang
+      POSTGRES_DB: learnmate
+      POSTGRES_USER: learnmate
+      POSTGRES_PASSWORD: learnmate
     ports:
       - "5432:5432"
     volumes:
@@ -13,7 +13,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: guochuang-redis
+    container_name: learnmate-redis
     ports:
       - "6379:6379"
     volumes:
@@ -21,7 +21,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: guochuang-minio
+    container_name: learnmate-minio
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -35,7 +35,7 @@ services:
   api:
     build:
       context: ../apps/api
-    container_name: guochuang-api
+    container_name: learnmate-api
     env_file:
       - ../apps/api/.env
     depends_on:
@@ -48,7 +48,7 @@ services:
   web:
     build:
       context: ../apps/web
-    container_name: guochuang-web
+    container_name: learnmate-web
     depends_on:
       - api
     ports:
@@ -58,4 +58,3 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
-
