@@ -24,3 +24,11 @@ logs/
 # system
 .DS_Store
 
+# md docs
+ARCHITECTURE.md
+COMMAND_LINE_GUIDE.md
+PROJECT_STRUCTURE.md
+SERVER_MIGRATION_GUIDE.md
+TECH_STACK_V1.md
+
+
