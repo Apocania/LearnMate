@@ -1,4 +1,11 @@
 import { request } from "./client";
+import type { CurrentUser, UserRole } from "../shared/types/user";
+
+export type RegisterRequest = {
+  username: string;
+  password: string;
+  role: UserRole;
+};
 
 export type LoginRequest = {
   username: string;
@@ -6,8 +13,17 @@ export type LoginRequest = {
 };
 
 export type LoginResponse = {
-  accessToken: string;
+  access_token: string;
+  token_type: string;
+  user: CurrentUser;
 };
+
+export function register(payload: RegisterRequest) {
+  return request<LoginResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
 
 export function login(payload: LoginRequest) {
   return request<LoginResponse>("/auth/login", {
@@ -16,3 +32,6 @@ export function login(payload: LoginRequest) {
   });
 }
 
+export function getCurrentUser() {
+  return request<CurrentUser>("/users/me");
+}

@@ -1,32 +1,64 @@
-import { NavLink, Outlet } from "react-router-dom";
+import {
+  BookOutlined,
+  BulbOutlined,
+  MessageOutlined,
+  RobotOutlined,
+  UserOutlined
+} from "@ant-design/icons";
+import { Button, Layout, Typography } from "antd";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
-  { to: "/", label: "学习首页" },
-  { to: "/courses", label: "课程中心" },
-  { to: "/forum", label: "论坛交流" },
-  { to: "/assistant", label: "AI 助教" },
-  { to: "/reports/me", label: "学习报告" }
+  { key: "/courses", icon: <BookOutlined />, label: "课程中心" },
+  { key: "/forum", icon: <MessageOutlined />, label: "讨论交流" },
+  { key: "/assistant", icon: <RobotOutlined />, label: "AI伴学" },
+  { key: "/reports/me", icon: <UserOutlined />, label: "个人中心" }
 ];
 
 export function AppLayout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const selectedKey = navItems.find((item) => location.pathname.startsWith(item.key))?.key ?? "";
+
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <h1 className="brand-title">LearnMate</h1>
-          <p className="brand-subtitle">AI Learning Companion</p>
-        </div>
-        <nav className="nav-list">
+    <Layout className="app-shell">
+      <Layout.Header className="top-header">
+        <button className="brand-button" type="button" onClick={() => navigate("/")}>
+          <span className="brand-mascot">
+            <BulbOutlined />
+          </span>
+          <span className="brand-copy">
+            <Typography.Text className="brand-title">LearnMate</Typography.Text>
+            <Typography.Text className="brand-subtitle">快乐学习伙伴</Typography.Text>
+          </span>
+        </button>
+
+        <nav className="top-nav" aria-label="主导航">
           {navItems.map((item) => (
-            <NavLink className="nav-link" key={item.to} to={item.to}>
-              {item.label}
-            </NavLink>
+            <button
+              className={selectedKey === item.key ? "top-nav-item active" : "top-nav-item"}
+              key={item.key}
+              type="button"
+              onClick={() => navigate(item.key)}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
           ))}
         </nav>
-      </aside>
-      <main className="main">
-        <Outlet />
-      </main>
-    </div>
+
+        <div className="header-actions">
+          <Button shape="round" type="primary" onClick={() => navigate("/login")}>
+            登录
+          </Button>
+        </div>
+      </Layout.Header>
+
+      <Layout.Content className="app-content">
+        <div className="content-shell">
+          <Outlet />
+        </div>
+      </Layout.Content>
+    </Layout>
   );
 }

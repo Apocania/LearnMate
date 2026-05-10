@@ -7,6 +7,7 @@ __pycache__/
 # build outputs
 dist/
 build/
+*.tsbuildinfo
 
 # environment
 .env
@@ -16,6 +17,10 @@ build/
 # logs
 *.log
 logs/
+
+# local uploaded files
+apps/api/storage/uploads/*
+!apps/api/storage/uploads/.gitkeep
 
 # editor
 .idea/
@@ -30,5 +35,3 @@ COMMAND_LINE_GUIDE.md
 PROJECT_STRUCTURE.md
 SERVER_MIGRATION_GUIDE.md
 TECH_STACK_V1.md
-
-

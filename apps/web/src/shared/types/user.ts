@@ -1,8 +1,7 @@
-export type UserRole = "student" | "teacher" | "admin";
+export type UserRole = "student" | "mentor";
 
 export type CurrentUser = {
-  id: string;
+  id: number;
   username: string;
   role: UserRole;
 };
-

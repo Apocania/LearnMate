@@ -2,9 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.init_db import init_db
 from app.modules.assistant.api import router as assistant_router
 from app.modules.auth.api import router as auth_router
 from app.modules.courses.api import router as courses_router
+from app.modules.files.api import router as files_router
 from app.modules.forum.api import router as forum_router
 from app.modules.learning_records.api import router as learning_records_router
 from app.modules.reports.api import router as reports_router
@@ -26,10 +28,15 @@ def create_app() -> FastAPI:
   def health_check() -> dict[str, str]:
     return {"status": "ok", "service": settings.app_name}
 
+  @app.on_event("startup")
+  def on_startup() -> None:
+    init_db()
+
   app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
   app.include_router(users_router, prefix="/api/users", tags=["users"])
   app.include_router(courses_router, prefix="/api/courses", tags=["courses"])
   app.include_router(forum_router, prefix="/api/forum", tags=["forum"])
+  app.include_router(files_router, prefix="/api/files", tags=["files"])
   app.include_router(assistant_router, prefix="/api/assistant", tags=["assistant"])
   app.include_router(learning_records_router, prefix="/api/learning-records", tags=["learning-records"])
   app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
@@ -38,4 +45,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

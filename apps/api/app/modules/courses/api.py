@@ -1,21 +1,49 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy.orm import Session
 
-from app.modules.courses.schemas import CourseSummary
+from app.core.database import get_db
+from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.models import User
+from app.modules.courses.schemas import CourseCreate, CourseResponse, CourseUpdate
+from app.modules.courses.service import CourseService
 
 router = APIRouter()
 
 
-@router.get("", response_model=list[CourseSummary])
-def list_courses() -> list[CourseSummary]:
-  return []
+@router.get("", response_model=list[CourseResponse])
+def list_courses(db: Session = Depends(get_db)) -> list[CourseResponse]:
+  return CourseService(db).list_courses()
 
 
-@router.get("/{course_id}")
-def get_course(course_id: str) -> dict[str, str]:
-  return {"id": course_id, "title": "课程详情占位"}
+@router.post("", response_model=CourseResponse, status_code=status.HTTP_201_CREATED)
+def create_course(
+  payload: CourseCreate,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> CourseResponse:
+  return CourseService(db).create_course(payload, current_user)
 
 
-@router.post("/{course_id}/enroll")
-def enroll_course(course_id: str) -> dict[str, str]:
-  return {"course_id": course_id, "status": "enrolled"}
+@router.get("/{course_id}", response_model=CourseResponse)
+def get_course(course_id: int, db: Session = Depends(get_db)) -> CourseResponse:
+  return CourseService(db).get_course(course_id)
 
+
+@router.put("/{course_id}", response_model=CourseResponse)
+def update_course(
+  course_id: int,
+  payload: CourseUpdate,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> CourseResponse:
+  return CourseService(db).update_course(course_id, payload, current_user)
+
+
+@router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_course(
+  course_id: int,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> Response:
+  CourseService(db).delete_course(course_id, current_user)
+  return Response(status_code=status.HTTP_204_NO_CONTENT)

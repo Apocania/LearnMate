@@ -15,7 +15,7 @@ class Settings(BaseSettings):
   jwt_secret: str = Field(default="change-me-in-production")
   jwt_expire_minutes: int = 60 * 24 * 7
 
-  cors_origins_raw: str = Field(default="http://localhost:5173", alias="CORS_ORIGINS")
+  cors_origins_raw: str = Field(default="http://localhost:5173,http://127.0.0.1:5173", alias="CORS_ORIGINS")
 
   minio_endpoint: str = "http://localhost:9000"
   minio_access_key: str = "minioadmin"
