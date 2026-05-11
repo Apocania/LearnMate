@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.modules.auth.models import User
 from app.modules.files.models import FileAsset
 from app.modules.files.repository import FileRepository
@@ -22,17 +23,27 @@ class FileService:
 
   async def upload_file(self, upload: UploadFile, current_user: User) -> FileAssetResponse:
     original_name = upload.filename or "unnamed-file"
+    content_type = upload.content_type or "application/octet-stream"
+    if content_type not in settings.upload_allowed_types:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不支持的文件类型")
+
     suffix = Path(original_name).suffix
     stored_name = f"{uuid4().hex}{suffix}"
     target_path = UPLOAD_DIR / stored_name
 
     content = await upload.read()
+    if len(content) > settings.upload_max_size_bytes:
+      raise HTTPException(
+        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        detail=f"文件不能超过 {settings.upload_max_size_mb}MB",
+      )
+
     target_path.write_bytes(content)
 
     file_asset = self.repository.create_file(
       original_name=original_name,
       stored_name=stored_name,
-      content_type=upload.content_type or "application/octet-stream",
+      content_type=content_type,
       size=len(content),
       uploader_id=current_user.id,
       uploader_name=current_user.username,
@@ -50,6 +61,16 @@ class FileService:
 
     return file_asset, path
 
+  def delete_file(self, file_id: int, current_user: User) -> None:
+    file_asset, path = self.get_file_path(file_id)
+    if current_user.role != "mentor":
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只有伴学师可以删除课件")
+    if file_asset.uploader_id != current_user.id:
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只能删除自己上传的课件")
+
+    path.unlink(missing_ok=True)
+    self.repository.delete_file(file_asset)
+
   def _to_response(self, file_asset: FileAsset) -> FileAssetResponse:
     return FileAssetResponse(
       id=file_asset.id,
@@ -62,4 +83,3 @@ class FileService:
       created_at=file_asset.created_at,
       url=f"/api/files/{file_asset.id}/download",
     )
-

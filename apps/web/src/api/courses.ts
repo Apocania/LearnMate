@@ -7,6 +7,8 @@ export type Course = {
   teacher_id: number;
   teacher_name: string;
   status: string;
+  enrollment_count: number;
+  joined_by_me: boolean;
 };
 
 export function listCourses() {
@@ -29,6 +31,18 @@ export function updateCourse(courseId: number, payload: Partial<Pick<Course, "ti
 
 export function deleteCourse(courseId: number) {
   return request<void>(`/courses/${courseId}`, {
+    method: "DELETE"
+  });
+}
+
+export function enrollCourse(courseId: number) {
+  return request<Course>(`/courses/${courseId}/enroll`, {
+    method: "POST"
+  });
+}
+
+export function leaveCourse(courseId: number) {
+  return request<Course>(`/courses/${courseId}/enroll`, {
     method: "DELETE"
   });
 }

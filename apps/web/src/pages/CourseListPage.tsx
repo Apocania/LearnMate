@@ -1,9 +1,19 @@
-import { BookOutlined, DeleteOutlined, EditOutlined, PlusOutlined, TeamOutlined } from "@ant-design/icons";
-import { Button, Card, Col, Form, Input, Modal, Popconfirm, Row, Space, Tag, Typography, message } from "antd";
+import {
+  BookOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  FileAddOutlined,
+  PlusOutlined,
+  TeamOutlined,
+  UserAddOutlined
+} from "@ant-design/icons";
+import { Alert, Button, Card, Col, Form, Input, Modal, Popconfirm, Row, Select, Space, Tag, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { Course, createCourse, deleteCourse, listCourses, updateCourse } from "../api/courses";
+import { Course, createCourse, deleteCourse, enrollCourse, leaveCourse, listCourses, updateCourse } from "../api/courses";
 import { PageHeader } from "../components/PageHeader";
+import { getStoredCurrentUser } from "../shared/utils/currentUser";
 
 type CourseFormValues = {
   title: string;
@@ -12,12 +22,16 @@ type CourseFormValues = {
 };
 
 export function CourseListPage() {
+  const navigate = useNavigate();
   const [form] = Form.useForm<CourseFormValues>();
   const [courses, setCourses] = useState<Course[]>([]);
   const [keyword, setKeyword] = useState("");
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const currentUser = getStoredCurrentUser();
+  const isMentor = currentUser?.role === "mentor";
+  const isStudent = currentUser?.role === "student";
 
   async function refreshCourses() {
     setIsLoading(true);
@@ -88,9 +102,38 @@ export function CourseListPage() {
     }
   }
 
+  async function handleToggleEnrollment(course: Course) {
+    if (!isStudent) {
+      message.info("请使用学生身份登录后再选课");
+      return;
+    }
+
+    try {
+      if (course.joined_by_me) {
+        await leaveCourse(course.id);
+        message.success("已退出课程");
+      } else {
+        await enrollCourse(course.id);
+        message.success("已加入课程");
+      }
+      await refreshCourses();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "选课操作失败");
+    }
+  }
+
   return (
     <>
       <PageHeader title="课程中心" description="浏览课程、查看详情并完成选课。" />
+      {!currentUser ? (
+        <Alert
+          className="section-row"
+          message="当前为游客浏览模式"
+          description="你可以浏览课程内容；登录学生身份后可以加入或退出课程，登录伴学师身份后可以创建和编辑课程。"
+          showIcon
+          type="info"
+        />
+      ) : null}
       <Card className="toolbar-card">
         <Space wrap>
           <Input.Search
@@ -100,9 +143,16 @@ export function CourseListPage() {
             style={{ width: 320 }}
             value={keyword}
           />
-          <Button icon={<PlusOutlined />} onClick={openCreateModal} type="primary">
-            创建课程
-          </Button>
+          {isMentor ? (
+            <Button icon={<PlusOutlined />} onClick={openCreateModal} type="primary">
+              创建课程
+            </Button>
+          ) : null}
+          {isMentor ? (
+            <Button icon={<FileAddOutlined />} onClick={() => navigate("/files")}>
+              课件管理
+            </Button>
+          ) : null}
         </Space>
       </Card>
       <Row className="section-row" gutter={[16, 16]}>
@@ -110,20 +160,29 @@ export function CourseListPage() {
           <Col key={course.id} lg={8} md={12} xs={24}>
             <Card
               actions={[
-                <Button icon={<EditOutlined />} key="edit" onClick={() => openEditModal(course)} type="link">
-                  编辑
-                </Button>,
-                <Popconfirm
-                  key="delete"
-                  okText="删除"
-                  onConfirm={() => void handleDelete(course.id)}
-                  title="确认删除这门课程？"
-                >
-                  <Button danger icon={<DeleteOutlined />} type="link">
-                    删除
+                isStudent ? (
+                  <Button icon={<UserAddOutlined />} key="enroll" onClick={() => void handleToggleEnrollment(course)} type="link">
+                    {course.joined_by_me ? "退出课程" : "加入课程"}
                   </Button>
-                </Popconfirm>
-              ]}
+                ) : null,
+                isMentor && currentUser?.id === course.teacher_id ? (
+                  <Button icon={<EditOutlined />} key="edit" onClick={() => openEditModal(course)} type="link">
+                    编辑
+                  </Button>
+                ) : null,
+                isMentor && currentUser?.id === course.teacher_id ? (
+                  <Popconfirm
+                    key="delete"
+                    okText="删除"
+                    onConfirm={() => void handleDelete(course.id)}
+                    title="确认删除这门课程？"
+                  >
+                    <Button danger icon={<DeleteOutlined />} type="link">
+                      删除
+                    </Button>
+                  </Popconfirm>
+                ) : null
+              ].filter(Boolean)}
               className="course-card"
               loading={isLoading}
             >
@@ -133,6 +192,8 @@ export function CourseListPage() {
                 <Typography.Text type="secondary">{course.description}</Typography.Text>
                 <Space wrap>
                   <Tag color={course.status === "published" ? "green" : "default"}>{course.status}</Tag>
+                  {course.joined_by_me ? <Tag color="blue">已加入</Tag> : null}
+                  <Tag color="cyan">{course.enrollment_count} 人学习</Tag>
                 </Space>
                 <Typography.Text type="secondary">
                   <TeamOutlined /> {course.teacher_name}
@@ -159,7 +220,12 @@ export function CourseListPage() {
             <Input.TextArea autoSize={{ minRows: 4, maxRows: 8 }} placeholder="介绍课程目标、内容和适合人群" />
           </Form.Item>
           <Form.Item label="状态" name="status" rules={[{ required: true }]}>
-            <Input placeholder="published / draft" />
+            <Select
+              options={[
+                { label: "已发布", value: "published" },
+                { label: "草稿", value: "draft" }
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>

@@ -1,7 +1,7 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modules.courses.models import Course
+from app.modules.courses.models import Course, CourseEnrollment
 
 
 class CourseRepository:
@@ -37,3 +37,27 @@ class CourseRepository:
   def delete_course(self, course: Course) -> None:
     self.db.delete(course)
     self.db.commit()
+
+  def get_enrollment(self, course_id: int, student_id: int) -> CourseEnrollment | None:
+    return self.db.scalar(
+      select(CourseEnrollment).where(
+        CourseEnrollment.course_id == course_id,
+        CourseEnrollment.student_id == student_id,
+      )
+    )
+
+  def enroll_course(self, course: Course, student_id: int, student_name: str) -> CourseEnrollment:
+    enrollment = CourseEnrollment(course_id=course.id, student_id=student_id, student_name=student_name)
+    self.db.add(enrollment)
+    self.db.commit()
+    self.db.refresh(enrollment)
+    return enrollment
+
+  def leave_course(self, enrollment: CourseEnrollment) -> None:
+    self.db.delete(enrollment)
+    self.db.commit()
+
+  def count_enrollments(self, course_id: int) -> int:
+    return self.db.scalar(
+      select(func.count()).select_from(CourseEnrollment).where(CourseEnrollment.course_id == course_id)
+    ) or 0

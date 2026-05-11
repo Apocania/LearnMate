@@ -30,7 +30,8 @@ def create_app() -> FastAPI:
 
   @app.on_event("startup")
   def on_startup() -> None:
-    init_db()
+    if settings.app_env != "test":
+      init_db()
 
   app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
   app.include_router(users_router, prefix="/api/users", tags=["users"])

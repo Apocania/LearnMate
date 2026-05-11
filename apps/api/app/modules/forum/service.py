@@ -16,6 +16,7 @@ class ForumService:
     return [self._build_post_response(post, current_user) for post in posts]
 
   def create_post(self, payload: ForumPostCreate, current_user: User) -> ForumPostResponse:
+    self._ensure_discussion_actor(current_user)
     post = self.repository.create_post(
       title=payload.title,
       content=payload.content,
@@ -30,13 +31,20 @@ class ForumService:
     return self.repository.list_comments(post_id)
 
   def create_comment(self, post_id: int, content: str, current_user: User) -> ForumComment:
+    self._ensure_discussion_actor(current_user)
     self._get_post_or_404(post_id)
     return self.repository.create_comment(post_id, current_user.id, current_user.username, content)
 
   def toggle_like(self, post_id: int, current_user: User) -> tuple[bool, int]:
+    self._ensure_discussion_actor(current_user)
     self._get_post_or_404(post_id)
     liked = self.repository.toggle_like(post_id, current_user.id)
     return liked, self.repository.count_likes(post_id)
+
+  def delete_post(self, post_id: int, current_user: User) -> None:
+    self._ensure_mentor(current_user)
+    post = self._get_post_or_404(post_id)
+    self.repository.delete_post(post)
 
   def _get_post_or_404(self, post_id: int) -> ForumPost:
     post = self.repository.get_post(post_id)
@@ -61,3 +69,11 @@ class ForumService:
       comment_count=self.repository.count_comments(post.id),
       liked_by_me=liked_by_me,
     )
+
+  def _ensure_discussion_actor(self, current_user: User) -> None:
+    if current_user.role not in {"student", "mentor"}:
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前身份不能参与讨论")
+
+  def _ensure_mentor(self, current_user: User) -> None:
+    if current_user.role != "mentor":
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只有伴学师可以管理交流区")

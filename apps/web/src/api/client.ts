@@ -24,8 +24,24 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // Keep the default message when the response is not JSON.
     }
+    if (response.status === 401) {
+      localStorage.removeItem("learnmate_access_token");
+      localStorage.removeItem("learnmate_current_user");
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
     throw new Error(message);
   }
 
-  return response.json() as Promise<T>;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 }

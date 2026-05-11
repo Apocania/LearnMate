@@ -15,6 +15,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<UserRole>("student");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,6 +23,12 @@ export function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    if (mode === "register" && password !== confirmPassword) {
+      setError("两次输入的密码不一致");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -60,6 +67,7 @@ export function LoginPage() {
           onChange={(value) => {
             setMode(value as "login" | "register");
             setError("");
+            setConfirmPassword("");
           }}
         />
 
@@ -72,8 +80,9 @@ export function LoginPage() {
               size="large"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="请输入用户名"
+              placeholder="3-32 位英文、数字或下划线"
             />
+            <Typography.Text type="secondary">用户名会统一保存为小写，支持英文、数字和下划线。</Typography.Text>
           </Form.Item>
 
           <Form.Item label="密码" required>
@@ -89,19 +98,33 @@ export function LoginPage() {
           </Form.Item>
 
           {mode === "register" ? (
-            <Form.Item label="选择身份" required>
-              <Radio.Group
-                className="role-radio-group"
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-              >
-                {roleOptions.map((option) => (
-                  <Radio.Button key={option.value} value={option.value}>
-                    {option.label}
-                  </Radio.Button>
-                ))}
-              </Radio.Group>
-            </Form.Item>
+            <>
+              <Form.Item label="确认密码" required>
+                <Input.Password
+                  minLength={6}
+                  maxLength={128}
+                  required
+                  size="large"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="请再次输入密码"
+                />
+              </Form.Item>
+
+              <Form.Item label="选择身份" required>
+                <Radio.Group
+                  className="role-radio-group"
+                  value={role}
+                  onChange={(event) => setRole(event.target.value)}
+                >
+                  {roleOptions.map((option) => (
+                    <Radio.Button key={option.value} value={option.value}>
+                      {option.label}
+                    </Radio.Button>
+                  ))}
+                </Radio.Group>
+              </Form.Item>
+            </>
           ) : null}
 
           {error ? <Alert className="auth-alert" message={error} type="error" showIcon /> : null}

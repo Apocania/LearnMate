@@ -8,6 +8,8 @@ import {
 import { Button, Layout, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import { clearStoredSession, getStoredCurrentUser } from "../shared/utils/currentUser";
+
 const navItems = [
   { key: "/courses", icon: <BookOutlined />, label: "课程中心" },
   { key: "/forum", icon: <MessageOutlined />, label: "讨论交流" },
@@ -18,7 +20,13 @@ const navItems = [
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const currentUser = getStoredCurrentUser();
   const selectedKey = navItems.find((item) => location.pathname.startsWith(item.key))?.key ?? "";
+
+  function handleLogout() {
+    clearStoredSession();
+    navigate("/login");
+  }
 
   return (
     <Layout className="app-shell">
@@ -48,9 +56,20 @@ export function AppLayout() {
         </nav>
 
         <div className="header-actions">
-          <Button shape="round" type="primary" onClick={() => navigate("/login")}>
-            登录
-          </Button>
+          {currentUser ? (
+            <>
+              <span className="user-pill">
+                {currentUser.username} · {currentUser.role === "mentor" ? "伴学师" : "学生"}
+              </span>
+              <Button shape="round" onClick={handleLogout}>
+                退出
+              </Button>
+            </>
+          ) : (
+            <Button shape="round" type="primary" onClick={() => navigate("/login")}>
+              登录
+            </Button>
+          )}
         </div>
       </Layout.Header>
 

@@ -26,6 +26,12 @@ export function uploadFile(file: File) {
   });
 }
 
+export function deleteFile(fileId: number) {
+  return request<void>(`/files/${fileId}`, {
+    method: "DELETE"
+  });
+}
+
 export function getFileDownloadUrl(file: FileAsset) {
   return `${getApiBaseUrl()}${file.url.replace("/api", "")}`;
 }

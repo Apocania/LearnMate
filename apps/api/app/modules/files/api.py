@@ -1,11 +1,11 @@
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, UploadFile, status
+from fastapi import APIRouter, Depends, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, require_roles
 from app.modules.auth.models import User
 from app.modules.files.schemas import FileAssetResponse
 from app.modules.files.service import FileService
@@ -24,6 +24,7 @@ async def upload_file(
   db: Session = Depends(get_db),
   current_user: User = Depends(get_current_user),
 ) -> FileAssetResponse:
+  require_roles(current_user, {"mentor"})
   return await FileService(db).upload_file(file, current_user)
 
 
@@ -36,3 +37,12 @@ def download_file(file_id: int, db: Session = Depends(get_db)) -> FileResponse:
     filename=quote(file_asset.original_name),
   )
 
+
+@router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_file(
+  file_id: int,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> Response:
+  FileService(db).delete_file(file_id, current_user)
+  return Response(status_code=status.HTTP_204_NO_CONTENT)

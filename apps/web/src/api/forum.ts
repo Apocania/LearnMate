@@ -49,3 +49,9 @@ export function togglePostLike(postId: number) {
     method: "POST"
   });
 }
+
+export function deletePost(postId: number) {
+  return request<void>(`/forum/posts/${postId}`, {
+    method: "DELETE"
+  });
+}

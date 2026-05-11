@@ -61,3 +61,8 @@ class ForumRepository:
     self.db.execute(delete(ForumLike).where(ForumLike.post_id == post_id))
     self.db.execute(delete(ForumComment).where(ForumComment.post_id == post_id))
     self.db.commit()
+
+  def delete_post(self, post: ForumPost) -> None:
+    self.delete_post_related(post.id)
+    self.db.delete(post)
+    self.db.commit()

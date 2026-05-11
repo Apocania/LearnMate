@@ -20,5 +20,7 @@ class CourseResponse(BaseModel):
   teacher_id: int
   teacher_name: str
   status: str
+  enrollment_count: int = 0
+  joined_by_me: bool = False
 
   model_config = {"from_attributes": True}

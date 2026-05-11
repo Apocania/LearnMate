@@ -21,6 +21,11 @@ class Settings(BaseSettings):
   minio_access_key: str = "minioadmin"
   minio_secret_key: str = "minioadmin"
   minio_bucket: str = "learnmate-materials"
+  upload_max_size_mb: int = 20
+  upload_allowed_types_raw: str = Field(
+    default="application/pdf,image/png,image/jpeg,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    alias="UPLOAD_ALLOWED_TYPES",
+  )
 
   llm_provider: str = "openai-compatible"
   llm_api_key: str = ""
@@ -32,6 +37,14 @@ class Settings(BaseSettings):
   @property
   def cors_origins(self) -> list[str]:
     return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
+
+  @property
+  def upload_max_size_bytes(self) -> int:
+    return self.upload_max_size_mb * 1024 * 1024
+
+  @property
+  def upload_allowed_types(self) -> set[str]:
+    return {content_type.strip() for content_type in self.upload_allowed_types_raw.split(",") if content_type.strip()}
 
 
 @lru_cache

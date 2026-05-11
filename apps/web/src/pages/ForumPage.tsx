@@ -1,5 +1,5 @@
-import { LikeFilled, LikeOutlined, MessageOutlined, PlusOutlined } from "@ant-design/icons";
-import { Avatar, Button, Card, Form, Input, List, Modal, Space, Tag, Typography, message } from "antd";
+import { DeleteOutlined, LikeFilled, LikeOutlined, MessageOutlined, PlusOutlined } from "@ant-design/icons";
+import { Alert, Avatar, Button, Card, Form, Input, List, Modal, Popconfirm, Space, Tag, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 
 import {
@@ -7,11 +7,13 @@ import {
   ForumPost,
   createComment,
   createPost,
+  deletePost,
   listComments,
   listPosts,
   togglePostLike
 } from "../api/forum";
 import { PageHeader } from "../components/PageHeader";
+import { getStoredCurrentUser } from "../shared/utils/currentUser";
 
 type PostFormValues = {
   title: string;
@@ -29,6 +31,9 @@ export function ForumPage() {
   const [comments, setComments] = useState<ForumComment[]>([]);
   const [selectedPost, setSelectedPost] = useState<ForumPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const currentUser = getStoredCurrentUser();
+  const canDiscuss = Boolean(currentUser);
+  const canManageForum = currentUser?.role === "mentor";
 
   async function refreshPosts() {
     try {
@@ -55,6 +60,10 @@ export function ForumPage() {
   }, []);
 
   async function handleCreatePost(values: PostFormValues) {
+    if (!canDiscuss) {
+      message.info("请登录后再发布帖子");
+      return;
+    }
     try {
       const post = await createPost(values);
       message.success("帖子已发布");
@@ -74,6 +83,10 @@ export function ForumPage() {
   }
 
   async function handleToggleLike(post: ForumPost) {
+    if (!canDiscuss) {
+      message.info("请登录后再点赞");
+      return;
+    }
     try {
       await togglePostLike(post.id);
       await refreshPosts();
@@ -84,6 +97,10 @@ export function ForumPage() {
 
   async function handleCreateComment(values: CommentFormValues) {
     if (!selectedPost) {
+      return;
+    }
+    if (!canDiscuss) {
+      message.info("请登录后再评论");
       return;
     }
     try {
@@ -97,12 +114,34 @@ export function ForumPage() {
     }
   }
 
+  async function handleDeletePost(post: ForumPost) {
+    try {
+      await deletePost(post.id);
+      message.success("帖子已删除");
+      if (selectedPost?.id === post.id) {
+        setSelectedPost(null);
+      }
+      await refreshPosts();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "删除帖子失败");
+    }
+  }
+
   return (
     <>
       <PageHeader title="讨论交流" description="和同学、伴学师一起提问、分享想法和完成答疑。" />
+      {!currentUser ? (
+        <Alert
+          className="section-row"
+          message="当前为游客浏览模式"
+          description="你可以浏览帖子和评论；登录后可以发帖、点赞和评论，伴学师还可以管理交流区内容。"
+          showIcon
+          type="info"
+        />
+      ) : null}
       <Card
         extra={
-          <Button icon={<PlusOutlined />} onClick={() => setIsPostModalOpen(true)} type="primary">
+          <Button disabled={!canDiscuss} icon={<PlusOutlined />} onClick={() => setIsPostModalOpen(true)} type="primary">
             发布帖子
           </Button>
         }
@@ -114,6 +153,7 @@ export function ForumPage() {
             <List.Item
               actions={[
                 <Button
+                  disabled={!canDiscuss}
                   icon={post.liked_by_me ? <LikeFilled /> : <LikeOutlined />}
                   key="like"
                   onClick={() => void handleToggleLike(post)}
@@ -126,8 +166,20 @@ export function ForumPage() {
                 </Typography.Text>,
                 <Button key="detail" onClick={() => void handleSelectPost(post)} type="link">
                   查看讨论
-                </Button>
-              ]}
+                </Button>,
+                canManageForum ? (
+                  <Popconfirm
+                    key="delete"
+                    okText="删除"
+                    onConfirm={() => void handleDeletePost(post)}
+                    title="确认删除这条帖子？"
+                  >
+                    <Button danger icon={<DeleteOutlined />} type="link">
+                      删除
+                    </Button>
+                  </Popconfirm>
+                ) : null
+              ].filter(Boolean)}
             >
               <List.Item.Meta
                 avatar={<Avatar>{post.author_name.slice(0, 1).toUpperCase()}</Avatar>}
@@ -172,14 +224,18 @@ export function ForumPage() {
                 </List.Item>
               )}
             />
-            <Form form={commentForm} layout="vertical" onFinish={handleCreateComment}>
+            {canDiscuss ? (
+              <Form form={commentForm} layout="vertical" onFinish={handleCreateComment}>
               <Form.Item name="content" rules={[{ required: true, message: "请输入评论内容" }]}>
                 <Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} placeholder="写下你的评论" />
               </Form.Item>
               <Button htmlType="submit" type="primary">
                 发布评论
               </Button>
-            </Form>
+              </Form>
+            ) : (
+              <Alert message="登录后可以参与评论" showIcon type="info" />
+            )}
           </Space>
         ) : null}
       </Modal>

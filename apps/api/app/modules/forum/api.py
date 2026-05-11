@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, get_optional_current_user
 from app.modules.auth.models import User
 from app.modules.forum.schemas import (
   ForumCommentCreate,
@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/posts", response_model=list[ForumPostResponse])
 def list_posts(
   db: Session = Depends(get_db),
-  current_user: User = Depends(get_current_user),
+  current_user: User | None = Depends(get_optional_current_user),
 ) -> list[ForumPostResponse]:
   return ForumService(db).list_posts(current_user)
 
@@ -56,3 +56,13 @@ def toggle_like(
 ) -> ForumLikeResponse:
   liked, like_count = ForumService(db).toggle_like(post_id, current_user)
   return ForumLikeResponse(liked=liked, like_count=like_count)
+
+
+@router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(
+  post_id: int,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> Response:
+  ForumService(db).delete_post(post_id, current_user)
+  return Response(status_code=status.HTTP_204_NO_CONTENT)

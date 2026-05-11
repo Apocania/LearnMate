@@ -36,3 +36,6 @@ class FileRepository:
     self.db.refresh(file_asset)
     return file_asset
 
+  def delete_file(self, file_asset: FileAsset) -> None:
+    self.db.delete(file_asset)
+    self.db.commit()
