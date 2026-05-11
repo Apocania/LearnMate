@@ -13,7 +13,7 @@ import {
   togglePostLike
 } from "../api/forum";
 import { PageHeader } from "../components/PageHeader";
-import { getStoredCurrentUser } from "../shared/utils/currentUser";
+import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 type PostFormValues = {
   title: string;
@@ -31,7 +31,7 @@ export function ForumPage() {
   const [comments, setComments] = useState<ForumComment[]>([]);
   const [selectedPost, setSelectedPost] = useState<ForumPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
-  const currentUser = getStoredCurrentUser();
+  const currentUser = useCurrentUser();
   const canDiscuss = Boolean(currentUser);
   const canManageForum = currentUser?.role === "mentor";
 

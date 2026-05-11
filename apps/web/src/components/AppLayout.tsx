@@ -8,7 +8,8 @@ import {
 import { Button, Layout, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { clearStoredSession, getStoredCurrentUser } from "../shared/utils/currentUser";
+import { clearStoredSession } from "../shared/utils/currentUser";
+import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 const navItems = [
   { key: "/courses", icon: <BookOutlined />, label: "课程中心" },
@@ -20,7 +21,7 @@ const navItems = [
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentUser = getStoredCurrentUser();
+  const currentUser = useCurrentUser();
   const selectedKey = navItems.find((item) => location.pathname.startsWith(item.key))?.key ?? "";
 
   function handleLogout() {

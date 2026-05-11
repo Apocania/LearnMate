@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Course, createCourse, deleteCourse, enrollCourse, leaveCourse, listCourses, updateCourse } from "../api/courses";
 import { PageHeader } from "../components/PageHeader";
-import { getStoredCurrentUser } from "../shared/utils/currentUser";
+import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 type CourseFormValues = {
   title: string;
@@ -29,7 +29,7 @@ export function CourseListPage() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const currentUser = getStoredCurrentUser();
+  const currentUser = useCurrentUser();
   const isMentor = currentUser?.role === "mentor";
   const isStudent = currentUser?.role === "student";
 
@@ -132,6 +132,14 @@ export function CourseListPage() {
           description="你可以浏览课程内容；登录学生身份后可以加入或退出课程，登录伴学师身份后可以创建和编辑课程。"
           showIcon
           type="info"
+        />
+      ) : isStudent ? (
+        <Alert
+          className="section-row"
+          message="学生模式"
+          description="你可以加入或退出课程。课程创建、编辑和删除仅伴学师可用。"
+          showIcon
+          type="success"
         />
       ) : null}
       <Card className="toolbar-card">

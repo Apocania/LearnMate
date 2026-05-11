@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { FileAsset, deleteFile, getFileDownloadUrl, listFiles, uploadFile } from "../api/files";
 import { PageHeader } from "../components/PageHeader";
-import { getStoredCurrentUser } from "../shared/utils/currentUser";
+import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 function formatFileSize(size: number) {
   if (size < 1024) {
@@ -19,7 +19,7 @@ function formatFileSize(size: number) {
 
 export function FilesPage() {
   const [files, setFiles] = useState<FileAsset[]>([]);
-  const currentUser = getStoredCurrentUser();
+  const currentUser = useCurrentUser();
   const canUpload = currentUser?.role === "mentor";
 
   async function refreshFiles() {

@@ -4,6 +4,7 @@ import { Alert, Button, Card, Form, Input, Radio, Segmented, Space, Typography }
 
 import { login, register } from "../api/auth";
 import type { UserRole } from "../shared/types/user";
+import { storeSession } from "../shared/utils/currentUser";
 
 const roleOptions: Array<{ label: string; value: UserRole }> = [
   { label: "学生", value: "student" },
@@ -37,8 +38,7 @@ export function LoginPage() {
           ? await login({ username, password })
           : await register({ username, password, role });
 
-      localStorage.setItem("learnmate_access_token", response.access_token);
-      localStorage.setItem("learnmate_current_user", JSON.stringify(response.user));
+      storeSession(response.access_token, response.user);
       navigate("/");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "操作失败，请稍后重试");

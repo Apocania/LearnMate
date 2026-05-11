@@ -1,3 +1,5 @@
+import { clearStoredSession } from "../shared/utils/currentUser";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
 
 export function getApiBaseUrl() {
@@ -25,8 +27,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       // Keep the default message when the response is not JSON.
     }
     if (response.status === 401) {
-      localStorage.removeItem("learnmate_access_token");
-      localStorage.removeItem("learnmate_current_user");
+      clearStoredSession();
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
       }

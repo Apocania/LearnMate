@@ -2,14 +2,94 @@
 
 本文档用于记录前后端接口设计。
 
-第一版建议接口前缀：
+当前接口统一使用 `/api` 前缀。
+
+## Auth
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/register` | 游客 | 注册并返回 token。用户名会去空格、小写化，只允许英文、数字和下划线，长度 3-32 位。 |
+| POST | `/api/auth/login` | 游客 | 登录并返回 token 和用户信息。 |
+
+角色：
 
 ```text
-/api/auth
-/api/users
-/api/courses
-/api/forum
-/api/assistant
-/api/reports
+student  学生
+mentor   伴学师
 ```
 
+## Courses
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/courses` | 可选 | 课程列表。游客可访问；登录学生会额外返回本人是否已加入。 |
+| POST | `/api/courses` | 伴学师 | 创建课程。 |
+| GET | `/api/courses/{course_id}` | 可选 | 课程详情。 |
+| PUT | `/api/courses/{course_id}` | 伴学师本人 | 编辑自己创建的课程。 |
+| DELETE | `/api/courses/{course_id}` | 伴学师本人 | 删除自己创建的课程，返回 `204`。 |
+| POST | `/api/courses/{course_id}/enroll` | 学生 | 加入课程。重复加入会保持幂等。 |
+| DELETE | `/api/courses/{course_id}/enroll` | 学生 | 退出课程。未加入时保持幂等。 |
+
+课程响应字段：
+
+```text
+id
+title
+description
+teacher_id
+teacher_name
+status
+enrollment_count
+joined_by_me
+```
+
+## Forum
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/forum/posts` | 可选 | 帖子列表，游客可浏览。 |
+| POST | `/api/forum/posts` | 学生/伴学师 | 发布帖子。 |
+| GET | `/api/forum/posts/{post_id}/comments` | 游客 | 查看评论。 |
+| POST | `/api/forum/posts/{post_id}/comments` | 学生/伴学师 | 发布评论。 |
+| POST | `/api/forum/posts/{post_id}/like` | 学生/伴学师 | 切换点赞状态。 |
+| DELETE | `/api/forum/posts/{post_id}` | 伴学师 | 删除帖子，返回 `204`。 |
+
+帖子响应包含 `like_count`、`comment_count`、`liked_by_me`。
+
+## Files
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/files` | 游客 | 课件列表。 |
+| POST | `/api/files/upload` | 伴学师 | 上传课件。限制大小和 MIME 类型。 |
+| GET | `/api/files/{file_id}/download` | 游客 | 浏览或下载课件。 |
+| DELETE | `/api/files/{file_id}` | 上传者本人且为伴学师 | 删除自己上传的课件，返回 `204`。 |
+
+当前默认上传限制：
+
+```text
+最大大小：20MB
+允许类型：PDF、PNG、JPEG、TXT、DOCX
+```
+
+## Assistant
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/assistant/messages` | 学生/伴学师 | 发送 AI 伴学问题，返回回答和引用列表。 |
+
+请求字段：
+
+```text
+content
+course_id 可选
+```
+
+当前后端已打通鉴权和接口调用，但 `VectorStore.search()` 和 `LLMClient.chat()` 仍是占位实现。
+
+## Error And Session Handling
+
+- 未登录访问需要 token 的接口会返回 `401`。
+- 身份不满足要求会返回 `403`。
+- 删除成功一般返回 `204 No Content`。
+- 前端收到 `401` 会清除本地 token 和用户信息，并跳转登录页。
