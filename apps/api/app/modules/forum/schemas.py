@@ -18,8 +18,10 @@ class ForumCommentResponse(BaseModel):
   post_id: int
   author_id: int
   author_name: str
+  author_avatar_url: str | None = None
   content: str
   created_at: datetime
+  can_delete: bool = False
 
   model_config = {"from_attributes": True}
 
@@ -30,6 +32,7 @@ class ForumPostResponse(BaseModel):
   content: str
   author_id: int
   author_name: str
+  author_avatar_url: str | None = None
   course_id: int | None
   created_at: datetime
   like_count: int

@@ -1,20 +1,28 @@
 import {
   BookOutlined,
   BulbOutlined,
+  CloudUploadOutlined,
   MessageOutlined,
+  NotificationOutlined,
   RobotOutlined,
   UserOutlined
 } from "@ant-design/icons";
-import { Button, Layout, Typography } from "antd";
+import { Badge, Button, Layout, Modal, Space, Typography, Upload, message } from "antd";
+import type { UploadProps } from "antd";
+import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { clearStoredSession } from "../shared/utils/currentUser";
+import { uploadMyAvatar } from "../api/auth";
+import { getUnreadMessageCount } from "../api/messages";
+import { clearStoredSession, updateStoredCurrentUser } from "../shared/utils/currentUser";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
+import { UserAvatar } from "./UserAvatar";
 
 const navItems = [
   { key: "/courses", icon: <BookOutlined />, label: "课程中心" },
   { key: "/forum", icon: <MessageOutlined />, label: "讨论交流" },
   { key: "/assistant", icon: <RobotOutlined />, label: "AI伴学" },
+  { key: "/messages", icon: <NotificationOutlined />, label: "消息中心" },
   { key: "/reports/me", icon: <UserOutlined />, label: "个人中心" }
 ];
 
@@ -22,12 +30,56 @@ export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const selectedKey = navItems.find((item) => location.pathname.startsWith(item.key))?.key ?? "";
+
+  useEffect(() => {
+    if (!currentUser) {
+      setUnreadCount(0);
+      return;
+    }
+
+    async function refreshUnreadCount() {
+      try {
+        const result = await getUnreadMessageCount();
+        setUnreadCount(result.unread_count);
+      } catch {
+        setUnreadCount(0);
+      }
+    }
+
+    void refreshUnreadCount();
+    const intervalId = window.setInterval(refreshUnreadCount, 30000);
+    return () => window.clearInterval(intervalId);
+  }, [currentUser?.id, location.pathname]);
 
   function handleLogout() {
     clearStoredSession();
     navigate("/login");
   }
+
+  const handleAvatarUpload: UploadProps["customRequest"] = async (options) => {
+    const file = options.file;
+    if (!(file instanceof File)) {
+      options.onError?.(new Error("请选择有效图片"));
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const user = await uploadMyAvatar(file);
+      updateStoredCurrentUser(user);
+      options.onSuccess?.(user);
+      message.success("头像已更新");
+    } catch (error) {
+      options.onError?.(error instanceof Error ? error : new Error("头像上传失败"));
+      message.error(error instanceof Error ? error.message : "头像上传失败");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   return (
     <Layout className="app-shell">
@@ -50,7 +102,13 @@ export function AppLayout() {
               type="button"
               onClick={() => navigate(item.key)}
             >
-              {item.icon}
+              {item.key === "/messages" ? (
+                <Badge count={currentUser ? unreadCount : 0} size="small">
+                  <span className="nav-icon-with-badge">{item.icon}</span>
+                </Badge>
+              ) : (
+                item.icon
+              )}
               <span>{item.label}</span>
             </button>
           ))}
@@ -59,9 +117,13 @@ export function AppLayout() {
         <div className="header-actions">
           {currentUser ? (
             <>
-              <span className="user-pill">
-                {currentUser.username} · {currentUser.role === "mentor" ? "伴学师" : "学生"}
-              </span>
+              <button className="user-avatar-button" type="button" onClick={() => setIsProfileOpen(true)}>
+                <UserAvatar avatarUrl={currentUser.avatar_url} size={46} username={currentUser.username} />
+                <span className="user-meta">
+                  <span className="user-name">{currentUser.username}</span>
+                  <span className="user-role">{currentUser.role === "mentor" ? "伴学师" : "学生"}</span>
+                </span>
+              </button>
               <Button shape="round" onClick={handleLogout}>
                 退出
               </Button>
@@ -79,6 +141,44 @@ export function AppLayout() {
           <Outlet />
         </div>
       </Layout.Content>
+
+      <Modal
+        destroyOnHidden
+        footer={null}
+        onCancel={() => setIsProfileOpen(false)}
+        open={isProfileOpen}
+        title="个人头像"
+        width={420}
+      >
+        {currentUser ? (
+          <Space className="profile-modal-content" direction="vertical" size={18}>
+            <UserAvatar
+              avatarUrl={currentUser.avatar_url}
+              className="profile-avatar-preview"
+              size={92}
+              username={currentUser.username}
+            />
+            <Space className="profile-modal-copy" direction="vertical" size={2}>
+              <Typography.Title level={4}>{currentUser.username}</Typography.Title>
+              <Typography.Text type="secondary">
+                {currentUser.role === "mentor" ? "伴学师" : "学生"}
+              </Typography.Text>
+            </Space>
+            <Upload.Dragger
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              customRequest={handleAvatarUpload}
+              maxCount={1}
+              showUploadList={false}
+            >
+              <p className="ant-upload-drag-icon">
+                <CloudUploadOutlined />
+              </p>
+              <p className="ant-upload-text">{isUploadingAvatar ? "正在上传头像..." : "点击或拖拽图片上传头像"}</p>
+              <p className="ant-upload-hint">支持 JPG、PNG、WebP、GIF，单张不超过 3MB。</p>
+            </Upload.Dragger>
+          </Space>
+        ) : null}
+      </Modal>
     </Layout>
   );
 }

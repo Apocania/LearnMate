@@ -47,11 +47,11 @@ MinIO 控制台：http://localhost:9001
 
 - `deploy/docker-compose.yml` 会读取 `../apps/api/.env`。
 - Docker Compose 场景应使用 `deploy/env.example` 作为模板，因为容器内服务名是 `postgres`、`redis`、`minio`。
-- 本机直接运行后端时可使用 `apps/api/.env.example`，通常数据库地址是 `localhost`。
+- 本机直接运行后端时可使用 `apps/api/.env.example`，其中数据库、Redis、MinIO 地址默认指向 `localhost`。
 - 生产环境必须替换 `JWT_SECRET`、数据库密码、MinIO 密钥和大模型 API Key。
 
 ## Current Limitations
 
 - 数据库迁移仍未正式 Alembic 化，当前开发阶段依赖 `create_all()` 和少量启动补丁 SQL。
-- MinIO 服务已在 Compose 中预留，但文件上传代码仍写入后端本地目录。
+- MinIO 服务已在 Compose 中预留，但课件和头像上传代码仍写入后端本地目录。
 - AI 伴学接口已打通，但真实大模型和向量检索仍待接入。

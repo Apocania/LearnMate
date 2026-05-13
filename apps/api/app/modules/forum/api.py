@@ -34,8 +34,12 @@ def create_post(
 
 
 @router.get("/posts/{post_id}/comments", response_model=list[ForumCommentResponse])
-def list_comments(post_id: int, db: Session = Depends(get_db)) -> list[ForumCommentResponse]:
-  return ForumService(db).list_comments(post_id)
+def list_comments(
+  post_id: int,
+  db: Session = Depends(get_db),
+  current_user: User | None = Depends(get_optional_current_user),
+) -> list[ForumCommentResponse]:
+  return ForumService(db).list_comments(post_id, current_user)
 
 
 @router.post("/posts/{post_id}/comments", response_model=ForumCommentResponse, status_code=status.HTTP_201_CREATED)
@@ -46,6 +50,16 @@ def create_comment(
   current_user: User = Depends(get_current_user),
 ) -> ForumCommentResponse:
   return ForumService(db).create_comment(post_id, payload.content, current_user)
+
+
+@router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_comment(
+  comment_id: int,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> Response:
+  ForumService(db).delete_comment(comment_id, current_user)
+  return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/posts/{post_id}/like", response_model=ForumLikeResponse)

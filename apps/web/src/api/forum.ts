@@ -6,6 +6,7 @@ export type ForumPost = {
   content: string;
   author_id: number;
   author_name: string;
+  author_avatar_url?: string | null;
   course_id: number | null;
   created_at: string;
   like_count: number;
@@ -18,8 +19,10 @@ export type ForumComment = {
   post_id: number;
   author_id: number;
   author_name: string;
+  author_avatar_url?: string | null;
   content: string;
   created_at: string;
+  can_delete: boolean;
 };
 
 export function listPosts() {
@@ -41,6 +44,12 @@ export function createComment(postId: number, payload: { content: string }) {
   return request<ForumComment>(`/forum/posts/${postId}/comments`, {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+}
+
+export function deleteComment(commentId: number) {
+  return request<void>(`/forum/comments/${commentId}`, {
+    method: "DELETE"
   });
 }
 

@@ -10,4 +10,4 @@ class User(Base):
   username: Mapped[str] = mapped_column(unique=True, index=True)
   password_hash: Mapped[str]
   role: Mapped[str]
-
+  avatar_url: Mapped[str | None] = mapped_column(nullable=True)

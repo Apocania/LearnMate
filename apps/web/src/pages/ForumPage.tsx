@@ -1,5 +1,5 @@
-import { DeleteOutlined, LikeFilled, LikeOutlined, MessageOutlined, PlusOutlined } from "@ant-design/icons";
-import { Alert, Avatar, Button, Card, Form, Input, List, Modal, Popconfirm, Space, Tag, Typography, message } from "antd";
+import { DeleteOutlined, LikeFilled, LikeOutlined, MessageOutlined, PlusOutlined, SendOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Form, Input, List, Modal, Popconfirm, Space, Tag, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 
 import {
@@ -7,12 +7,15 @@ import {
   ForumPost,
   createComment,
   createPost,
+  deleteComment,
   deletePost,
   listComments,
   listPosts,
   togglePostLike
 } from "../api/forum";
 import { PageHeader } from "../components/PageHeader";
+import { UserAvatar } from "../components/UserAvatar";
+import { formatDate } from "../shared/utils/formatDate";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 type PostFormValues = {
@@ -20,16 +23,13 @@ type PostFormValues = {
   content: string;
 };
 
-type CommentFormValues = {
-  content: string;
-};
-
 export function ForumPage() {
   const [postForm] = Form.useForm<PostFormValues>();
-  const [commentForm] = Form.useForm<CommentFormValues>();
   const [posts, setPosts] = useState<ForumPost[]>([]);
-  const [comments, setComments] = useState<ForumComment[]>([]);
-  const [selectedPost, setSelectedPost] = useState<ForumPost | null>(null);
+  const [commentsByPostId, setCommentsByPostId] = useState<Record<number, ForumComment[]>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
+  const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
+  const [loadingCommentsPostId, setLoadingCommentsPostId] = useState<number | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const currentUser = useCurrentUser();
   const canDiscuss = Boolean(currentUser);
@@ -39,19 +39,20 @@ export function ForumPage() {
     try {
       const nextPosts = await listPosts();
       setPosts(nextPosts);
-      if (selectedPost) {
-        setSelectedPost(nextPosts.find((post) => post.id === selectedPost.id) ?? null);
-      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : "帖子加载失败");
     }
   }
 
   async function refreshComments(postId: number) {
+    setLoadingCommentsPostId(postId);
     try {
-      setComments(await listComments(postId));
+      const nextComments = await listComments(postId);
+      setCommentsByPostId((previous) => ({ ...previous, [postId]: nextComments }));
     } catch (error) {
       message.error(error instanceof Error ? error.message : "评论加载失败");
+    } finally {
+      setLoadingCommentsPostId(null);
     }
   }
 
@@ -70,15 +71,17 @@ export function ForumPage() {
       setIsPostModalOpen(false);
       postForm.resetFields();
       await refreshPosts();
-      setSelectedPost(post);
-      await refreshComments(post.id);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "发帖失败");
     }
   }
 
-  async function handleSelectPost(post: ForumPost) {
-    setSelectedPost(post);
+  async function handleToggleComments(post: ForumPost) {
+    if (expandedPostId === post.id) {
+      setExpandedPostId(null);
+      return;
+    }
+    setExpandedPostId(post.id);
     await refreshComments(post.id);
   }
 
@@ -95,18 +98,21 @@ export function ForumPage() {
     }
   }
 
-  async function handleCreateComment(values: CommentFormValues) {
-    if (!selectedPost) {
-      return;
-    }
+  async function handleCreateComment(post: ForumPost) {
     if (!canDiscuss) {
       message.info("请登录后再评论");
       return;
     }
+    const content = commentDrafts[post.id]?.trim();
+    if (!content) {
+      message.info("请输入评论内容");
+      return;
+    }
     try {
-      await createComment(selectedPost.id, values);
-      commentForm.resetFields();
-      await refreshComments(selectedPost.id);
+      await createComment(post.id, { content });
+      setCommentDrafts((previous) => ({ ...previous, [post.id]: "" }));
+      setExpandedPostId(post.id);
+      await refreshComments(post.id);
       await refreshPosts();
       message.success("评论已发布");
     } catch (error) {
@@ -114,12 +120,23 @@ export function ForumPage() {
     }
   }
 
+  async function handleDeleteComment(comment: ForumComment) {
+    try {
+      await deleteComment(comment.id);
+      message.success("评论已删除");
+      await refreshComments(comment.post_id);
+      await refreshPosts();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "删除评论失败");
+    }
+  }
+
   async function handleDeletePost(post: ForumPost) {
     try {
       await deletePost(post.id);
       message.success("帖子已删除");
-      if (selectedPost?.id === post.id) {
-        setSelectedPost(null);
+      if (expandedPostId === post.id) {
+        setExpandedPostId(null);
       }
       await refreshPosts();
     } catch (error) {
@@ -148,9 +165,12 @@ export function ForumPage() {
         title="课程讨论"
       >
         <List
+          className="forum-list"
           dataSource={posts}
+          locale={{ emptyText: "暂无帖子" }}
           renderItem={(post) => (
             <List.Item
+              className="forum-post-item"
               actions={[
                 <Button
                   disabled={!canDiscuss}
@@ -161,11 +181,13 @@ export function ForumPage() {
                 >
                   {post.like_count}
                 </Button>,
-                <Typography.Text key="reply">
-                  <MessageOutlined /> {post.comment_count} 评论
-                </Typography.Text>,
-                <Button key="detail" onClick={() => void handleSelectPost(post)} type="link">
-                  查看讨论
+                <Button
+                  icon={<MessageOutlined />}
+                  key="reply"
+                  onClick={() => void handleToggleComments(post)}
+                  type="link"
+                >
+                  {expandedPostId === post.id ? "收起评论" : `${post.comment_count} 评论`}
                 </Button>,
                 canManageForum ? (
                   <Popconfirm
@@ -181,66 +203,111 @@ export function ForumPage() {
                 ) : null
               ].filter(Boolean)}
             >
-              <List.Item.Meta
-                avatar={<Avatar>{post.author_name.slice(0, 1).toUpperCase()}</Avatar>}
-                title={
-                  <Space>
-                    <Typography.Text strong>{post.title}</Typography.Text>
-                    {post.course_id ? <Tag>课程 #{post.course_id}</Tag> : <Tag>通用讨论</Tag>}
-                  </Space>
-                }
-                description={
-                  <Space direction="vertical" size={4}>
-                    <Typography.Text type="secondary">发起人：{post.author_name}</Typography.Text>
-                    <Typography.Text>{post.content}</Typography.Text>
-                  </Space>
-                }
-              />
+              <div className="forum-post-body">
+                <List.Item.Meta
+                  avatar={<UserAvatar avatarUrl={post.author_avatar_url} size={44} username={post.author_name} />}
+                  title={
+                    <Space wrap>
+                      <Typography.Text className="forum-post-title" strong>
+                        {post.title}
+                      </Typography.Text>
+                      {post.course_id ? <Tag>课程 #{post.course_id}</Tag> : <Tag>通用讨论</Tag>}
+                    </Space>
+                  }
+                  description={
+                    <Space direction="vertical" size={6}>
+                      <Space wrap split={<span>·</span>}>
+                        <Typography.Text type="secondary">{post.author_name}</Typography.Text>
+                        <Typography.Text type="secondary">{formatDate(post.created_at)}</Typography.Text>
+                      </Space>
+                      <Typography.Paragraph className="forum-post-content">{post.content}</Typography.Paragraph>
+                    </Space>
+                  }
+                />
+
+                {expandedPostId === post.id ? (
+                  <div className="post-comments-panel">
+                    <List
+                      className="post-comment-list"
+                      dataSource={commentsByPostId[post.id] ?? []}
+                      loading={loadingCommentsPostId === post.id}
+                      locale={{ emptyText: "还没有评论，来写第一条吧" }}
+                      renderItem={(comment) => (
+                        <List.Item
+                          actions={[
+                            comment.can_delete ? (
+                              <Popconfirm
+                                key="delete"
+                                okText="删除"
+                                onConfirm={() => void handleDeleteComment(comment)}
+                                title="确认删除这条评论？"
+                              >
+                                <Button danger icon={<DeleteOutlined />} type="link">
+                                  删除
+                                </Button>
+                              </Popconfirm>
+                            ) : null
+                          ].filter(Boolean)}
+                          className="post-comment-item"
+                        >
+                          <List.Item.Meta
+                            avatar={
+                              <UserAvatar
+                                avatarUrl={comment.author_avatar_url}
+                                size={34}
+                                username={comment.author_name}
+                              />
+                            }
+                            description={
+                              <Space direction="vertical" size={3}>
+                                <Typography.Paragraph className="post-comment-content">
+                                  {comment.content}
+                                </Typography.Paragraph>
+                                <Typography.Text type="secondary">{formatDate(comment.created_at)}</Typography.Text>
+                              </Space>
+                            }
+                            title={comment.author_name}
+                          />
+                        </List.Item>
+                      )}
+                    />
+                    {canDiscuss ? (
+                      <div className="comment-composer">
+                        <UserAvatar
+                          avatarUrl={currentUser?.avatar_url}
+                          size={34}
+                          username={currentUser?.username}
+                        />
+                        <Input.TextArea
+                          autoSize={{ minRows: 2, maxRows: 5 }}
+                          onChange={(event) =>
+                            setCommentDrafts((previous) => ({ ...previous, [post.id]: event.target.value }))
+                          }
+                          placeholder="写下你的评论"
+                          value={commentDrafts[post.id] ?? ""}
+                        />
+                        <Button
+                          disabled={!commentDrafts[post.id]?.trim()}
+                          icon={<SendOutlined />}
+                          onClick={() => void handleCreateComment(post)}
+                          type="primary"
+                        >
+                          发布
+                        </Button>
+                      </div>
+                    ) : (
+                      <Alert message="登录后可以参与评论" showIcon type="info" />
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </List.Item>
           )}
         />
       </Card>
 
       <Modal
-        footer={null}
-        onCancel={() => setSelectedPost(null)}
-        open={Boolean(selectedPost)}
-        title={selectedPost?.title}
-        width={720}
-      >
-        {selectedPost ? (
-          <Space className="discussion-detail" direction="vertical" size="large">
-            <Typography.Paragraph>{selectedPost.content}</Typography.Paragraph>
-            <List
-              dataSource={comments}
-              header="评论"
-              renderItem={(comment) => (
-                <List.Item>
-                  <List.Item.Meta
-                    avatar={<Avatar>{comment.author_name.slice(0, 1).toUpperCase()}</Avatar>}
-                    description={comment.content}
-                    title={comment.author_name}
-                  />
-                </List.Item>
-              )}
-            />
-            {canDiscuss ? (
-              <Form form={commentForm} layout="vertical" onFinish={handleCreateComment}>
-              <Form.Item name="content" rules={[{ required: true, message: "请输入评论内容" }]}>
-                <Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} placeholder="写下你的评论" />
-              </Form.Item>
-              <Button htmlType="submit" type="primary">
-                发布评论
-              </Button>
-              </Form>
-            ) : (
-              <Alert message="登录后可以参与评论" showIcon type="info" />
-            )}
-          </Space>
-        ) : null}
-      </Modal>
-
-      <Modal
+        destroyOnHidden
         okText="发布"
         onCancel={() => setIsPostModalOpen(false)}
         onOk={() => postForm.submit()}

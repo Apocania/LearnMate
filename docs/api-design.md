@@ -11,6 +11,13 @@
 | POST | `/api/auth/register` | 游客 | 注册并返回 token。用户名会去空格、小写化，只允许英文、数字和下划线，长度 3-32 位。 |
 | POST | `/api/auth/login` | 游客 | 登录并返回 token 和用户信息。 |
 
+## Users
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/users/me` | 登录用户 | 返回当前用户信息。 |
+| POST | `/api/users/me/avatar` | 登录用户 | 上传个人头像，支持 JPG、PNG、WebP、GIF，返回更新后的用户信息。 |
+
 角色：
 
 ```text
@@ -51,10 +58,32 @@ joined_by_me
 | POST | `/api/forum/posts` | 学生/伴学师 | 发布帖子。 |
 | GET | `/api/forum/posts/{post_id}/comments` | 游客 | 查看评论。 |
 | POST | `/api/forum/posts/{post_id}/comments` | 学生/伴学师 | 发布评论。 |
+| DELETE | `/api/forum/comments/{comment_id}` | 评论作者/伴学师 | 删除评论，返回 `204`。 |
 | POST | `/api/forum/posts/{post_id}/like` | 学生/伴学师 | 切换点赞状态。 |
 | DELETE | `/api/forum/posts/{post_id}` | 伴学师 | 删除帖子，返回 `204`。 |
 
-帖子响应包含 `like_count`、`comment_count`、`liked_by_me`。
+帖子响应包含 `like_count`、`comment_count`、`liked_by_me`、`author_avatar_url`；评论响应包含 `author_avatar_url` 和 `can_delete`。点赞和评论会给帖子作者生成消息提醒，自己操作自己的帖子不会提醒自己。
+
+## Messages
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/messages` | 登录用户 | 当前用户消息列表。 |
+| GET | `/api/messages/unread-count` | 登录用户 | 当前用户未读消息数。 |
+| POST | `/api/messages/{message_id}/read` | 消息接收者 | 标记单条消息已读。 |
+| POST | `/api/messages/read-all` | 登录用户 | 全部标记已读，返回 `204`。 |
+| GET | `/api/messages/student-recipients` | 伴学师 | 获取可接收私信的学生列表。 |
+| POST | `/api/messages/private` | 伴学师 | 给指定学生发送私信。 |
+| POST | `/api/messages/announcements` | 伴学师 | 给所有学生发送公告。 |
+
+消息类型：
+
+```text
+like          点赞提醒
+comment       评论提醒
+private       私信
+announcement  公告
+```
 
 ## Files
 
@@ -86,6 +115,12 @@ course_id 可选
 ```
 
 当前后端已打通鉴权和接口调用，但 `VectorStore.search()` 和 `LLMClient.chat()` 仍是占位实现。
+
+## Reports
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/reports/me` | 登录用户 | 返回个人中心统计，包括课程数量、讨论互动、估算学习投入、进度、学习轨迹和建议。 |
 
 ## Error And Session Handling
 

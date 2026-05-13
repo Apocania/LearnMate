@@ -206,6 +206,9 @@ export function CourseListPage() {
                 <Typography.Text type="secondary">
                   <TeamOutlined /> {course.teacher_name}
                 </Typography.Text>
+                <Button onClick={() => navigate(`/courses/${course.id}`)} type="link">
+                  查看详情
+                </Button>
               </Space>
             </Card>
           </Col>

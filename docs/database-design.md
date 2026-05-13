@@ -2,7 +2,7 @@
 
 本文档用于记录数据库表设计。
 
-当前后端仍主要通过 SQLAlchemy `create_all()` 初始化表结构，并在开发环境启动时执行少量补丁 SQL。项目已引入 Alembic，但正式迁移版本仍待补齐。
+当前后端仍主要通过 SQLAlchemy `create_all()` 初始化表结构，并在开发环境启动时执行少量补丁 SQL。项目已引入 Alembic，但正式迁移版本仍待补齐。启动初始化会导入 auth、courses、files、forum、assistant、learning_records、reports 模型，确保当前模型表都会被纳入 `create_all()`。
 
 ## Current Tables
 
@@ -16,6 +16,7 @@ forum_likes
 file_assets
 learning_events
 learning_reports
+user_messages
 assistant_sessions
 ```
 
@@ -27,6 +28,7 @@ assistant_sessions
 | username | 唯一用户名，登录和展示使用 |
 | password_hash | 密码哈希 |
 | role | `student` 或 `mentor` |
+| avatar_url | 可选头像地址，当前指向后端静态头像目录 |
 
 ## courses
 
@@ -98,6 +100,27 @@ INDEX(student_id)
 UNIQUE(post_id, user_id)
 ```
 
+## user_messages
+
+用户消息和提醒表。
+
+| Field | Description |
+|---|---|
+| id | 主键 |
+| recipient_id | 接收者用户 ID |
+| recipient_name | 接收者用户名快照 |
+| sender_id | 发送者用户 ID，系统消息可为空 |
+| sender_name | 发送者用户名快照 |
+| message_type | `like` / `comment` / `private` / `announcement` |
+| title | 消息标题 |
+| content | 消息内容 |
+| source_type | 来源类型，例如 `forum_post` |
+| source_id | 来源 ID，例如帖子 ID |
+| is_read | 是否已读 |
+| created_at | 创建时间 |
+
+当前点赞和评论会给帖子作者写入消息；私信和公告由伴学师发送。
+
 ## file_assets
 
 | Field | Description |
@@ -133,7 +156,7 @@ UNIQUE(post_id, user_id)
 | course_id | 可选课程 ID |
 | summary | 报告摘要 |
 
-当前报告能力仍偏占位，前端个人中心也还未接入真实统计数据。
+当前 `/api/reports/me` 会基于课程选课/建课和论坛互动做轻量统计；该表本身仍是后续持久化报告的预留结构。
 
 ## Planned Tables
 

@@ -35,3 +35,12 @@ export function login(payload: LoginRequest) {
 export function getCurrentUser() {
   return request<CurrentUser>("/users/me");
 }
+
+export function uploadMyAvatar(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<CurrentUser>("/users/me/avatar", {
+    method: "POST",
+    body: formData
+  });
+}

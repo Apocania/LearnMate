@@ -27,6 +27,11 @@ export function storeSession(accessToken: string, user: CurrentUser) {
   notifySessionChange();
 }
 
+export function updateStoredCurrentUser(user: CurrentUser) {
+  localStorage.setItem("learnmate_current_user", JSON.stringify(user));
+  notifySessionChange();
+}
+
 export function clearStoredSession() {
   localStorage.removeItem("learnmate_current_user");
   localStorage.removeItem("learnmate_access_token");

@@ -1,25 +1,73 @@
-import { Card, Col, Progress, Row, Space, Statistic, Timeline, Typography } from "antd";
+import { Alert, Card, Col, Progress, Row, Space, Spin, Statistic, Timeline, Typography, message } from "antd";
+import { useEffect, useState } from "react";
 
+import { MyLearningReport, getMyLearningReports } from "../api/reports";
 import { PageHeader } from "../components/PageHeader";
+import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 export function LearningReportPage() {
+  const currentUser = useCurrentUser();
+  const [report, setReport] = useState<MyLearningReport | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function refreshReport() {
+    if (!currentUser) {
+      setReport(null);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      setReport(await getMyLearningReports());
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "学习报告加载失败");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshReport();
+  }, [currentUser?.id]);
+
+  if (!currentUser) {
+    return (
+      <>
+        <PageHeader title="个人中心" description="查看学习档案、成长进度和适合你的学习建议。" />
+        <Alert message="请先登录后查看个人中心" showIcon type="info" />
+      </>
+    );
+  }
+
+  if (isLoading && !report) {
+    return (
+      <div className="page-loading">
+        <Spin /> 加载学习报告中...
+      </div>
+    );
+  }
+
   return (
     <>
       <PageHeader title="个人中心" description="查看学习档案、成长进度和适合你的学习建议。" />
       <Row gutter={[16, 16]}>
         <Col md={8} xs={24}>
           <Card>
-            <Statistic title="本周学习时长" value={9.5} suffix="小时" />
+            <Statistic title="估算学习投入" value={report?.estimated_study_hours ?? 0} suffix="小时" />
           </Card>
         </Col>
         <Col md={8} xs={24}>
           <Card>
-            <Statistic title="完成章节" value={12} suffix="节" />
+            <Statistic
+              title={currentUser.role === "student" ? "已加入课程" : "已创建课程"}
+              value={currentUser.role === "student" ? report?.enrolled_course_count ?? 0 : report?.created_course_count ?? 0}
+              suffix="门"
+            />
           </Card>
         </Col>
         <Col md={8} xs={24}>
           <Card>
-            <Statistic title="AI 辅助问答" value={18} suffix="次" />
+            <Statistic title="讨论互动" value={(report?.forum_post_count ?? 0) + (report?.forum_comment_count ?? 0)} suffix="次" />
           </Card>
         </Col>
       </Row>
@@ -27,33 +75,28 @@ export function LearningReportPage() {
         <Col lg={12} xs={24}>
           <Card title="能力进度">
             <Space className="progress-list" direction="vertical" size="large">
-              <div>
-                <Typography.Text>概念理解</Typography.Text>
-                <Progress percent={78} />
-              </div>
-              <div>
-                <Typography.Text>实践应用</Typography.Text>
-                <Progress percent={62} />
-              </div>
-              <div>
-                <Typography.Text>讨论互动</Typography.Text>
-                <Progress percent={54} />
-              </div>
+              {(report?.progress ?? []).map((item) => (
+                <div key={item.label}>
+                  <Typography.Text>{item.label}</Typography.Text>
+                  <Progress percent={item.percent} />
+                </div>
+              ))}
             </Space>
           </Card>
         </Col>
         <Col lg={12} xs={24}>
           <Card title="学习轨迹">
-            <Timeline
-              items={[
-                { children: "完成机器学习基础第 2 章" },
-                { children: "向 AI 助教提问 3 次" },
-                { children: "参与论坛讨论：学习率选择" }
-              ]}
-            />
+            <Timeline items={(report?.recent_activities ?? []).map((activity) => ({ children: activity }))} />
           </Card>
         </Col>
       </Row>
+      <Card className="section-row" title="学习建议">
+        <Space direction="vertical">
+          {(report?.suggestions ?? []).map((suggestion) => (
+            <Typography.Text key={suggestion}>{suggestion}</Typography.Text>
+          ))}
+        </Space>
+      </Card>
     </>
   );
 }

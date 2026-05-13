@@ -1,6 +1,25 @@
 import { request } from "./client";
 
-export function getMyLearningReports() {
-  return request("/reports/me");
-}
+export type LearningProgressItem = {
+  label: string;
+  percent: number;
+};
 
+export type MyLearningReport = {
+  user_id: number;
+  username: string;
+  role: "student" | "mentor";
+  enrolled_course_count: number;
+  created_course_count: number;
+  forum_post_count: number;
+  forum_comment_count: number;
+  ai_question_count: number;
+  estimated_study_hours: number;
+  progress: LearningProgressItem[];
+  recent_activities: string[];
+  suggestions: string[];
+};
+
+export function getMyLearningReports() {
+  return request<MyLearningReport>("/reports/me");
+}

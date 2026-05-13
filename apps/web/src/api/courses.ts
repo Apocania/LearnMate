@@ -15,6 +15,10 @@ export function listCourses() {
   return request<Course[]>("/courses");
 }
 
+export function getCourse(courseId: number) {
+  return request<Course>(`/courses/${courseId}`);
+}
+
 export function createCourse(payload: Pick<Course, "title" | "description" | "status">) {
   return request<Course>("/courses", {
     method: "POST",

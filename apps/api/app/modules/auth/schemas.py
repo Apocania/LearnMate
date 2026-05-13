@@ -10,6 +10,7 @@ class UserResponse(BaseModel):
   id: int
   username: str
   role: UserRole
+  avatar_url: str | None = None
 
   model_config = {"from_attributes": True}
 

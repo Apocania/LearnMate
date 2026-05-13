@@ -10,6 +10,7 @@ const FilesPage = lazy(() => import("../pages/FilesPage").then((module) => ({ de
 const ForumPage = lazy(() => import("../pages/ForumPage").then((module) => ({ default: module.ForumPage })));
 const LearningReportPage = lazy(() => import("../pages/LearningReportPage").then((module) => ({ default: module.LearningReportPage })));
 const LoginPage = lazy(() => import("../pages/LoginPage").then((module) => ({ default: module.LoginPage })));
+const MessagesPage = lazy(() => import("../pages/MessagesPage").then((module) => ({ default: module.MessagesPage })));
 
 function lazyPage(element: React.ReactNode) {
   return <Suspense fallback={<div className="page-loading">页面加载中...</div>}>{element}</Suspense>;
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: "forum", element: lazyPage(<ForumPage />) },
       { path: "files", element: lazyPage(<FilesPage />) },
       { path: "assistant", element: lazyPage(<AssistantPage />) },
+      { path: "messages", element: lazyPage(<MessagesPage />) },
       { path: "reports/me", element: lazyPage(<LearningReportPage />) }
     ]
   }

@@ -129,6 +129,21 @@ textarea {
   box-shadow: 0 10px 20px rgba(79, 179, 255, 0.24);
 }
 
+.nav-icon-with-badge {
+  display: inline-grid;
+  place-items: center;
+  color: inherit;
+  line-height: 1;
+}
+
+.top-nav-item .ant-badge {
+  line-height: 1;
+}
+
+.top-nav-item .ant-badge .ant-scroll-number {
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -136,18 +151,79 @@ textarea {
   gap: 10px;
 }
 
-.user-pill {
-  max-width: 220px;
-  padding: 8px 13px;
-  overflow: hidden;
-  border: 1px solid rgba(79, 179, 255, 0.18);
+.user-avatar-button {
+  max-width: 230px;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 4px 5px;
+  border: 1px solid rgba(79, 179, 255, 0.22);
   border-radius: 999px;
   color: #23364d;
-  background: #eef8ff;
+  background: #f6fbff;
+  box-shadow: 0 8px 18px rgba(75, 104, 138, 0.08);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.user-avatar-button:hover {
+  border-color: rgba(55, 119, 255, 0.36);
+  box-shadow: 0 12px 24px rgba(75, 104, 138, 0.12);
+  transform: translateY(-1px);
+}
+
+.user-avatar-button .ant-avatar,
+.profile-avatar-preview,
+.forum-post-item .ant-avatar,
+.post-comment-item .ant-avatar {
+  flex: 0 0 auto;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  background: linear-gradient(135deg, #3777ff, #35c4aa);
+  box-shadow: 0 8px 18px rgba(55, 119, 255, 0.18);
+  font-weight: 900;
+}
+
+.user-meta {
+  min-width: 0;
+  display: grid;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.user-name {
+  max-width: 138px;
+  overflow: hidden;
+  color: #23364d;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.user-role {
+  color: #6d7c8e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.profile-modal-content {
+  width: 100%;
+  align-items: center;
+}
+
+.profile-modal-copy {
+  width: 100%;
+  align-items: center;
+  text-align: center;
+}
+
+.profile-modal-copy .ant-typography {
+  margin: 0;
 }
 
 .app-content {
@@ -219,6 +295,53 @@ textarea {
   font-weight: 800;
 }
 
+.ant-modal .ant-modal-content {
+  overflow: hidden;
+  border: 1px solid rgba(117, 142, 166, 0.14);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(34, 55, 78, 0.22);
+}
+
+.ant-modal .ant-modal-header {
+  margin: -20px -24px 18px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid rgba(117, 142, 166, 0.12);
+  background: linear-gradient(135deg, #f8fbff, #f2fbfa);
+}
+
+.ant-modal .ant-modal-title {
+  color: #253a57;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.ant-modal .ant-modal-close {
+  top: 16px;
+  inset-inline-end: 16px;
+  border-radius: 999px;
+}
+
+.ant-modal .ant-modal-footer {
+  margin-top: 20px;
+}
+
+.ant-popover-inner {
+  border: 1px solid rgba(117, 142, 166, 0.14);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(34, 55, 78, 0.16);
+}
+
+.ant-upload-wrapper .ant-upload-drag {
+  border-color: rgba(79, 179, 255, 0.28);
+  border-radius: 16px;
+  background: #f7fbff;
+}
+
+.ant-upload-wrapper .ant-upload-drag:hover {
+  border-color: #4fb3ff;
+  background: #f2fbff;
+}
+
 .ant-btn {
   border-radius: 999px;
   font-weight: 700;
@@ -271,6 +394,139 @@ textarea {
 
 .detail-action {
   margin-top: 18px;
+}
+
+.forum-list .ant-list-items {
+  display: grid;
+  gap: 0;
+}
+
+.forum-post-item.ant-list-item {
+  align-items: flex-start;
+  padding: 22px 32px;
+  border-block-end-color: rgba(117, 142, 166, 0.1);
+}
+
+.forum-post-item .ant-list-item-action {
+  margin-inline-start: 20px;
+}
+
+.forum-post-body {
+  min-width: 0;
+  width: 100%;
+}
+
+.forum-post-title {
+  color: #243a58;
+  font-size: 16px;
+}
+
+.forum-post-content.ant-typography,
+.post-comment-content.ant-typography {
+  margin: 0;
+  color: #25364d;
+  white-space: pre-wrap;
+}
+
+.post-comments-panel {
+  margin: 18px 0 0 56px;
+  padding: 14px;
+  border: 1px solid rgba(117, 142, 166, 0.12);
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.post-comment-list {
+  margin-bottom: 12px;
+}
+
+.post-comment-item.ant-list-item {
+  padding: 12px 0;
+}
+
+.post-comment-item.ant-list-item:first-child {
+  padding-top: 0;
+}
+
+.post-comment-item .ant-list-item-meta-title {
+  margin-bottom: 2px;
+  color: #263a55;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.comment-composer {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(117, 142, 166, 0.1);
+}
+
+.comment-composer .ant-input {
+  border-color: rgba(117, 142, 166, 0.18);
+  background: #ffffff;
+}
+
+.message-list .ant-list-items {
+  display: grid;
+  gap: 10px;
+}
+
+.message-item.ant-list-item {
+  padding: 16px;
+  border: 1px solid rgba(117, 142, 166, 0.12);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.message-item.unread.ant-list-item {
+  border-color: rgba(55, 119, 255, 0.22);
+  background: #f7fbff;
+}
+
+.message-kind {
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #3777ff, #35c4aa);
+  font-size: 18px;
+}
+
+.message-kind.private {
+  background: linear-gradient(135deg, #7952f5, #4fb3ff);
+}
+
+.message-kind.announcement {
+  background: linear-gradient(135deg, #ffb545, #ff7a59);
+}
+
+.message-kind.comment {
+  background: linear-gradient(135deg, #00a6a6, #4fb3ff);
+}
+
+.message-content.ant-typography {
+  margin: 0;
+  color: #2a3b52;
+  white-space: pre-wrap;
+}
+
+.unread-dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: #ff4d4f;
+  vertical-align: middle;
+}
+
+.message-compose-stack {
+  width: 100%;
 }
 
 .discord-chat-shell {
@@ -436,10 +692,6 @@ textarea {
   border-radius: 12px;
 }
 
-.discussion-detail {
-  width: 100%;
-}
-
 .empty-state {
   padding: 48px 0;
   background: #ffffff;
@@ -528,8 +780,41 @@ textarea {
     flex: 0 0 auto;
   }
 
+  .header-actions {
+    justify-content: flex-start;
+  }
+
+  .user-avatar-button {
+    max-width: calc(100vw - 126px);
+  }
+
   .app-content {
     padding: 18px;
+  }
+
+  .forum-post-item.ant-list-item {
+    padding: 18px;
+  }
+
+  .forum-post-item.ant-list-item {
+    display: block;
+  }
+
+  .forum-post-item .ant-list-item-action {
+    margin: 12px 0 0 54px;
+  }
+
+  .post-comments-panel {
+    margin-left: 0;
+  }
+
+  .comment-composer {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .comment-composer .ant-btn {
+    grid-column: 2;
+    justify-self: end;
   }
 
   .discord-chat-shell {

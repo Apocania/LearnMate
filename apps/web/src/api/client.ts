@@ -6,6 +6,20 @@ export function getApiBaseUrl() {
   return API_BASE_URL;
 }
 
+export function resolveApiAssetUrl(url?: string | null) {
+  if (!url) {
+    return undefined;
+  }
+  if (/^(https?:|data:|blob:)/.test(url)) {
+    return url;
+  }
+
+  const absoluteBase = API_BASE_URL.startsWith("http")
+    ? API_BASE_URL
+    : `${window.location.origin}${API_BASE_URL.startsWith("/") ? "" : "/"}${API_BASE_URL}`;
+  return new URL(url, absoluteBase).toString();
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("learnmate_access_token");
   const isFormData = init?.body instanceof FormData;

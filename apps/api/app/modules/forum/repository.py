@@ -1,6 +1,7 @@
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.modules.auth.models import User
 from app.modules.forum.models import ForumComment, ForumLike, ForumPost
 
 
@@ -13,6 +14,15 @@ class ForumRepository:
 
   def get_post(self, post_id: int) -> ForumPost | None:
     return self.db.get(ForumPost, post_id)
+
+  def get_comment(self, comment_id: int) -> ForumComment | None:
+    return self.db.get(ForumComment, comment_id)
+
+  def get_user_avatar_urls(self, user_ids: set[int]) -> dict[int, str | None]:
+    if not user_ids:
+      return {}
+    rows = self.db.execute(select(User.id, User.avatar_url).where(User.id.in_(user_ids))).all()
+    return {user_id: avatar_url for user_id, avatar_url in rows}
 
   def create_post(self, title: str, content: str, author_id: int, author_name: str, course_id: int | None) -> ForumPost:
     post = ForumPost(
@@ -50,6 +60,10 @@ class ForumRepository:
     self.db.add(ForumLike(post_id=post_id, user_id=user_id))
     self.db.commit()
     return True
+
+  def delete_comment(self, comment: ForumComment) -> None:
+    self.db.delete(comment)
+    self.db.commit()
 
   def count_likes(self, post_id: int) -> int:
     return self.db.scalar(select(func.count()).select_from(ForumLike).where(ForumLike.post_id == post_id)) or 0
