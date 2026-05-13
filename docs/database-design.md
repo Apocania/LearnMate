@@ -2,7 +2,7 @@
 
 本文档用于记录数据库表设计。
 
-当前后端仍主要通过 SQLAlchemy `create_all()` 初始化表结构，并在开发环境启动时执行少量补丁 SQL。项目已引入 Alembic，但正式迁移版本仍待补齐。启动初始化会导入 auth、courses、files、forum、assistant、learning_records、reports 模型，确保当前模型表都会被纳入 `create_all()`。
+当前后端仍主要通过 SQLAlchemy `create_all()` 初始化表结构，并在开发环境启动时执行少量补丁 SQL。项目已引入 Alembic，但正式迁移版本仍待补齐。启动初始化会导入 auth、courses、files、forum、assistant、learning_records、messages、reports 模型，确保当前模型表都会被纳入 `create_all()`。
 
 ## Current Tables
 

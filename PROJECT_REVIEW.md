@@ -445,7 +445,7 @@ apps/api/app/main.py
 - 创建 FastAPI 应用。
 - 配置 CORS。
 - 注册健康检查接口。
-- 注册 auth、users、courses、forum、files、assistant、learning_records、reports 路由。
+- 注册 auth、users、courses、forum、files、assistant、learning_records、messages、reports 路由。
 - 非测试环境启动时初始化数据库。
 
 优点：
