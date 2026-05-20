@@ -20,6 +20,12 @@ docker compose up -d postgres redis minio
 docker compose up -d --build
 ```
 
+只重建前端：
+
+```bash
+docker compose up -d --build web
+```
+
 常用地址：
 
 ```text
@@ -34,5 +40,6 @@ MinIO 控制台：http://localhost:9001
 - `docker-compose.yml` 会读取 `../apps/api/.env`。
 - Compose 环境请优先使用本目录的 `env.example`，其中数据库、Redis、MinIO 地址使用容器服务名。
 - 如果从 `apps/api/.env.example` 复制 `.env`，需要确认 `DATABASE_URL`、`REDIS_URL`、`MINIO_ENDPOINT` 是否适合容器网络。
+- `web` 服务使用 nginx 托管构建后的静态文件，不是 Vite 开发服务器；修改前端源码后不会热重载，需要重建 `web` 镜像并强刷浏览器。
 
-当前后端课件和头像上传仍写入本地上传目录，MinIO 服务是后续对象存储接入的基础设施预留。
+当前后端课件、头像和论坛附件上传仍写入本地上传目录，MinIO 服务是后续对象存储接入的基础设施预留。

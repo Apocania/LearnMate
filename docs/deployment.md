@@ -34,6 +34,13 @@ cd deploy
 docker compose up -d --build
 ```
 
+只重建前端静态站点：
+
+```bash
+cd deploy
+docker compose up -d --build web
+```
+
 常用地址：
 
 ```text
@@ -49,9 +56,10 @@ MinIO 控制台：http://localhost:9001
 - Docker Compose 场景应使用 `deploy/env.example` 作为模板，因为容器内服务名是 `postgres`、`redis`、`minio`。
 - 本机直接运行后端时可使用 `apps/api/.env.example`，其中数据库、Redis、MinIO 地址默认指向 `localhost`。
 - 生产环境必须替换 `JWT_SECRET`、数据库密码、MinIO 密钥和大模型 API Key。
+- `web` 容器通过 nginx 托管 `npm run build` 后的静态文件，Docker 部署下修改前端源码不会热重载，需要执行 `docker compose up -d --build web`。
 
 ## Current Limitations
 
 - 数据库迁移仍未正式 Alembic 化，当前开发阶段依赖 `create_all()` 和少量启动补丁 SQL。
-- MinIO 服务已在 Compose 中预留，但课件和头像上传代码仍写入后端本地目录。
+- MinIO 服务已在 Compose 中预留，但课件、头像和论坛附件上传代码仍写入后端本地目录。
 - AI 伴学接口已打通，但真实大模型和向量检索仍待接入。

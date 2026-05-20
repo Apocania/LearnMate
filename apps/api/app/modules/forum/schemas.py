@@ -1,12 +1,20 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ForumPostCreate(BaseModel):
   title: str
   content: str
   course_id: int | None = None
+
+
+class ForumAttachmentResponse(BaseModel):
+  original_name: str
+  stored_name: str
+  content_type: str
+  size: int
+  url: str
 
 
 class ForumCommentCreate(BaseModel):
@@ -33,6 +41,7 @@ class ForumPostResponse(BaseModel):
   author_id: int
   author_name: str
   author_avatar_url: str | None = None
+  attachments: list[ForumAttachmentResponse] = Field(default_factory=list)
   course_id: int | None
   created_at: datetime
   like_count: int

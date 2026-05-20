@@ -1,30 +1,52 @@
-from fastapi import HTTPException, status
+import json
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.modules.auth.models import User
 from app.modules.forum.models import ForumComment, ForumPost
 from app.modules.forum.repository import ForumRepository
-from app.modules.forum.schemas import ForumCommentResponse, ForumPostCreate, ForumPostResponse
+from app.modules.forum.schemas import (
+  ForumAttachmentResponse,
+  ForumCommentResponse,
+  ForumPostCreate,
+  ForumPostResponse,
+)
 from app.modules.messages.service import MessageService
+
+FORUM_ATTACHMENT_DIR = Path(__file__).resolve().parents[3] / "storage" / "forum-attachments"
+FORUM_ATTACHMENT_TYPES = settings.upload_allowed_types | {"image/webp", "text/markdown"}
+MAX_FORUM_ATTACHMENTS = 5
 
 
 class ForumService:
   def __init__(self, db: Session) -> None:
     self.repository = ForumRepository(db)
+    FORUM_ATTACHMENT_DIR.mkdir(parents=True, exist_ok=True)
 
   def list_posts(self, current_user: User | None = None) -> list[ForumPostResponse]:
     posts = self.repository.list_posts(current_user.id if current_user else None)
     avatar_urls = self.repository.get_user_avatar_urls({post.author_id for post in posts})
     return [self._build_post_response(post, current_user, avatar_urls.get(post.author_id)) for post in posts]
 
-  def create_post(self, payload: ForumPostCreate, current_user: User) -> ForumPostResponse:
+  async def create_post(
+    self,
+    payload: ForumPostCreate,
+    current_user: User,
+    uploads: list[UploadFile] | None = None,
+  ) -> ForumPostResponse:
     self._ensure_discussion_actor(current_user)
+    attachments = await self._store_attachments(uploads or [])
     post = self.repository.create_post(
       title=payload.title,
       content=payload.content,
       author_id=current_user.id,
       author_name=current_user.username,
       course_id=payload.course_id,
+      attachments=json.dumps(attachments, ensure_ascii=False),
     )
     return self._build_post_response(post, current_user, current_user.avatar_url)
 
@@ -88,6 +110,7 @@ class ForumService:
       author_id=post.author_id,
       author_name=post.author_name,
       author_avatar_url=author_avatar_url,
+      attachments=self._load_attachments(post.attachments),
       course_id=post.course_id,
       created_at=post.created_at,
       like_count=self.repository.count_likes(post.id),
@@ -123,3 +146,68 @@ class ForumService:
   def _ensure_mentor(self, current_user: User) -> None:
     if current_user.role != "mentor":
       raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只有伴学师可以管理交流区")
+
+  async def _store_attachments(self, uploads: list[UploadFile]) -> list[dict[str, str | int]]:
+    real_uploads = [upload for upload in uploads if upload.filename]
+    if len(real_uploads) > MAX_FORUM_ATTACHMENTS:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"附件最多上传 {MAX_FORUM_ATTACHMENTS} 个")
+
+    attachments: list[dict[str, str | int]] = []
+    for upload in real_uploads:
+      original_name = upload.filename or "unnamed-file"
+      content_type = upload.content_type or "application/octet-stream"
+      if content_type not in FORUM_ATTACHMENT_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"不支持的附件类型：{content_type}")
+
+      content = await upload.read()
+      if len(content) > settings.upload_max_size_bytes:
+        raise HTTPException(
+          status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+          detail=f"单个附件不能超过 {settings.upload_max_size_mb}MB",
+        )
+      if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="附件文件不能为空")
+
+      suffix = Path(original_name).suffix
+      stored_name = f"{uuid4().hex}{suffix}"
+      target_path = FORUM_ATTACHMENT_DIR / stored_name
+      target_path.write_bytes(content)
+      attachments.append(
+        {
+          "original_name": original_name,
+          "stored_name": stored_name,
+          "content_type": content_type,
+          "size": len(content),
+          "url": f"/api/forum/attachments/{stored_name}/download",
+        }
+      )
+
+    return attachments
+
+  def _load_attachments(self, raw_attachments: str | None) -> list[ForumAttachmentResponse]:
+    if not raw_attachments:
+      return []
+    try:
+      attachments = json.loads(raw_attachments)
+    except json.JSONDecodeError:
+      return []
+    if not isinstance(attachments, list):
+      return []
+
+    valid_attachments: list[ForumAttachmentResponse] = []
+    for attachment in attachments:
+      if not isinstance(attachment, dict):
+        continue
+      try:
+        valid_attachments.append(ForumAttachmentResponse.model_validate(attachment))
+      except ValueError:
+        continue
+    return valid_attachments
+
+  def get_attachment_path(self, stored_name: str) -> Path:
+    if "/" in stored_name or "\\" in stored_name:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="附件路径无效")
+    path = FORUM_ATTACHMENT_DIR / stored_name
+    if not path.exists():
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="附件不存在")
+    return path

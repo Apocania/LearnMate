@@ -36,8 +36,8 @@ UPLOAD_ALLOWED_TYPES=application/pdf,image/png,image/jpeg,text/plain,application
 
 - `auth/users`：注册、登录、当前用户解析、可选用户解析、角色权限工具和个人头像上传。用户名会去空格、小写化，并限制为 3-32 位英文、数字或下划线。
 - `courses`：课程浏览、伴学师课程管理、学生加入/退出课程，响应会返回 `enrollment_count` 和 `joined_by_me`。
-- `forum`：游客浏览帖子和评论，登录用户发帖、评论、点赞并删除自己的评论，伴学师可删除帖子和评论。
-- `messages`：登录用户查看消息和未读数；点赞/评论会生成提醒；伴学师可发送私信和面向学生的公告。
+- `forum`：游客浏览帖子和评论，登录用户使用 Markdown 正文和最多 5 个附件发帖、评论、点赞并删除自己的评论，伴学师可删除帖子和评论。
+- `messages`：登录用户查看消息和未读数；点赞/评论会给帖子作者生成提醒；伴学师可发送私信和面向学生的公告。
 - `files`：课件列表、上传、下载、删除。只有伴学师可上传，且只能删除自己上传的课件。
 - `assistant`：登录后调用 `/api/assistant/messages`，当前仍使用占位检索和占位模型回答。
 - `reports`：登录后返回个人中心统计，包括选课/建课、讨论互动、估算学习投入和建议。
@@ -59,6 +59,7 @@ POST   /api/courses/{course_id}/enroll
 DELETE /api/courses/{course_id}/enroll
 GET    /api/forum/posts
 POST   /api/forum/posts
+GET    /api/forum/attachments/{stored_name}/download
 GET    /api/forum/posts/{post_id}/comments
 POST   /api/forum/posts/{post_id}/comments
 DELETE /api/forum/comments/{comment_id}
@@ -88,3 +89,13 @@ APP_ENV=test .venv/bin/python -m pytest tests
 ```
 
 `APP_ENV=test` 会跳过启动时的数据库初始化，便于运行不依赖真实数据库的轻量测试。
+
+## Storage Notes
+
+当前后端上传分为三类：
+
+- 个人头像：写入后端本地头像目录，并通过用户 `avatar_url` 返回给前端。
+- 课件文件：写入后端本地上传目录，数据库保存文件元数据。
+- 论坛附件：写入 `storage/forum-attachments`，帖子表保存附件 JSON 元数据和下载地址。
+
+MinIO 配置和 Compose 服务已经预留，但当前代码尚未把上述上传切换到对象存储。

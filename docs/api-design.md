@@ -55,14 +55,15 @@ joined_by_me
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/api/forum/posts` | 可选 | 帖子列表，游客可浏览。 |
-| POST | `/api/forum/posts` | 学生/伴学师 | 发布帖子。 |
+| POST | `/api/forum/posts` | 学生/伴学师 | 发布帖子，使用 `multipart/form-data`，字段包含 `title`、`content`、可选 `course_id` 和最多 5 个 `attachments`。正文按 Markdown 文本保存，前端负责预览和展示渲染。 |
+| GET | `/api/forum/attachments/{stored_name}/download` | 游客 | 下载帖子附件。 |
 | GET | `/api/forum/posts/{post_id}/comments` | 游客 | 查看评论。 |
 | POST | `/api/forum/posts/{post_id}/comments` | 学生/伴学师 | 发布评论。 |
 | DELETE | `/api/forum/comments/{comment_id}` | 评论作者/伴学师 | 删除评论，返回 `204`。 |
 | POST | `/api/forum/posts/{post_id}/like` | 学生/伴学师 | 切换点赞状态。 |
 | DELETE | `/api/forum/posts/{post_id}` | 伴学师 | 删除帖子，返回 `204`。 |
 
-帖子响应包含 `like_count`、`comment_count`、`liked_by_me`、`author_avatar_url`；评论响应包含 `author_avatar_url` 和 `can_delete`。点赞和评论会给帖子作者生成消息提醒，自己操作自己的帖子不会提醒自己。
+帖子响应包含 `like_count`、`comment_count`、`liked_by_me`、`author_avatar_url`、`attachments`；评论响应包含 `author_avatar_url` 和 `can_delete`。点赞和评论会给帖子作者生成消息提醒，自己操作自己的帖子不会提醒自己。论坛附件当前使用后端本地 `storage/forum-attachments` 保存，下载接口会校验文件名避免路径穿越。
 
 ## Messages
 

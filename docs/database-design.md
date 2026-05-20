@@ -70,6 +70,7 @@ INDEX(student_id)
 | id | 主键 |
 | title | 帖子标题 |
 | content | 帖子正文 |
+| attachments | 帖子附件元数据 JSON，包含原始文件名、存储名、MIME、大小和下载地址 |
 | author_id | 作者 ID |
 | author_name | 作者用户名快照 |
 | course_id | 可选课程 ID |
@@ -121,6 +122,8 @@ UNIQUE(post_id, user_id)
 
 当前点赞和评论会给帖子作者写入消息；私信和公告由伴学师发送。
 
+论坛附件没有单独建表，当前作为 `forum_posts.attachments` 的 JSON 文本保存；每个元素包含 `original_name`、`stored_name`、`content_type`、`size` 和 `url`。这适合早期原型，后续如果需要附件检索、权限审计或对象存储生命周期管理，建议拆成独立 `forum_attachments` 表。
+
 ## file_assets
 
 | Field | Description |
@@ -165,6 +168,7 @@ UNIQUE(post_id, user_id)
 ```text
 course_chapters
 course_materials
+forum_attachments
 assistant_messages
 knowledge_documents
 knowledge_chunks

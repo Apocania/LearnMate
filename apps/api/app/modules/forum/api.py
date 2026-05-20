@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -25,12 +26,22 @@ def list_posts(
 
 
 @router.post("/posts", response_model=ForumPostResponse, status_code=status.HTTP_201_CREATED)
-def create_post(
-  payload: ForumPostCreate,
+async def create_post(
+  title: str = Form(...),
+  content: str = Form(...),
+  course_id: int | None = Form(None),
+  attachments: list[UploadFile] | None = File(None),
   db: Session = Depends(get_db),
   current_user: User = Depends(get_current_user),
 ) -> ForumPostResponse:
-  return ForumService(db).create_post(payload, current_user)
+  payload = ForumPostCreate(title=title, content=content, course_id=course_id)
+  return await ForumService(db).create_post(payload, current_user, attachments or [])
+
+
+@router.get("/attachments/{stored_name}/download")
+def download_attachment(stored_name: str, db: Session = Depends(get_db)) -> FileResponse:
+  path = ForumService(db).get_attachment_path(stored_name)
+  return FileResponse(path)
 
 
 @router.get("/posts/{post_id}/comments", response_model=list[ForumCommentResponse])

@@ -10,3 +10,5 @@
 - `database-design.md`：数据库设计
 - `ai-assistant-design.md`：AI 助教设计
 - `deployment.md`：部署说明
+
+根目录 `project_structure_1.md` 用于按目录和关键文件解释项目结构、命名含义、文件作用和功能归属。

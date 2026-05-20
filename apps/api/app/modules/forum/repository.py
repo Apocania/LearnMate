@@ -24,10 +24,19 @@ class ForumRepository:
     rows = self.db.execute(select(User.id, User.avatar_url).where(User.id.in_(user_ids))).all()
     return {user_id: avatar_url for user_id, avatar_url in rows}
 
-  def create_post(self, title: str, content: str, author_id: int, author_name: str, course_id: int | None) -> ForumPost:
+  def create_post(
+    self,
+    title: str,
+    content: str,
+    author_id: int,
+    author_name: str,
+    course_id: int | None,
+    attachments: str = "[]",
+  ) -> ForumPost:
     post = ForumPost(
       title=title,
       content=content,
+      attachments=attachments,
       author_id=author_id,
       author_name=author_name,
       course_id=course_id,

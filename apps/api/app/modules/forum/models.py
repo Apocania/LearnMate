@@ -12,6 +12,7 @@ class ForumPost(Base):
   id: Mapped[int] = mapped_column(primary_key=True, index=True)
   title: Mapped[str] = mapped_column(index=True)
   content: Mapped[str] = mapped_column(Text)
+  attachments: Mapped[str] = mapped_column(Text, default="[]", server_default="[]")
   author_id: Mapped[int] = mapped_column(index=True)
   author_name: Mapped[str]
   course_id: Mapped[int | None] = mapped_column(nullable=True, index=True)

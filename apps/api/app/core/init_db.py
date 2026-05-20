@@ -26,6 +26,7 @@ def _ensure_development_columns() -> None:
     "CREATE INDEX IF NOT EXISTS ix_course_enrollments_student_id ON course_enrollments (student_id)",
     "ALTER TABLE forum_posts ADD COLUMN IF NOT EXISTS author_name VARCHAR NOT NULL DEFAULT 'unknown'",
     "ALTER TABLE forum_posts ADD COLUMN IF NOT EXISTS course_id INTEGER",
+    "ALTER TABLE forum_posts ADD COLUMN IF NOT EXISTS attachments TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE forum_posts ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now()",
     "CREATE TABLE IF NOT EXISTS user_messages (id SERIAL PRIMARY KEY, recipient_id INTEGER NOT NULL, recipient_name VARCHAR NOT NULL, sender_id INTEGER, sender_name VARCHAR, message_type VARCHAR NOT NULL, title VARCHAR NOT NULL, content TEXT NOT NULL, source_type VARCHAR, source_id INTEGER, is_read BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMP WITH TIME ZONE DEFAULT now())",
     "CREATE INDEX IF NOT EXISTS ix_user_messages_recipient_id ON user_messages (recipient_id)",
