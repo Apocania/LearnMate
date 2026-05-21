@@ -24,3 +24,25 @@ class CourseResponse(BaseModel):
   joined_by_me: bool = False
 
   model_config = {"from_attributes": True}
+
+
+class CourseChapterCreate(BaseModel):
+  title: str
+  description: str = ""
+  sort_order: int = 1
+
+
+class CourseChapterUpdate(BaseModel):
+  title: str | None = None
+  description: str | None = None
+  sort_order: int | None = None
+
+
+class CourseChapterResponse(BaseModel):
+  id: int
+  course_id: int
+  title: str
+  description: str
+  sort_order: int
+
+  model_config = {"from_attributes": True}

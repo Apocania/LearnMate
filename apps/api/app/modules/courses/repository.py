@@ -1,7 +1,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modules.courses.models import Course, CourseEnrollment
+from app.modules.courses.models import Course, CourseChapter, CourseEnrollment
 
 
 class CourseRepository:
@@ -61,3 +61,33 @@ class CourseRepository:
     return self.db.scalar(
       select(func.count()).select_from(CourseEnrollment).where(CourseEnrollment.course_id == course_id)
     ) or 0
+
+  def list_chapters(self, course_id: int) -> list[CourseChapter]:
+    return list(
+      self.db.scalars(
+        select(CourseChapter)
+        .where(CourseChapter.course_id == course_id)
+        .order_by(CourseChapter.sort_order.asc(), CourseChapter.id.asc())
+      ).all()
+    )
+
+  def get_chapter(self, chapter_id: int) -> CourseChapter | None:
+    return self.db.get(CourseChapter, chapter_id)
+
+  def create_chapter(self, course_id: int, title: str, description: str, sort_order: int) -> CourseChapter:
+    chapter = CourseChapter(course_id=course_id, title=title, description=description, sort_order=sort_order)
+    self.db.add(chapter)
+    self.db.commit()
+    self.db.refresh(chapter)
+    return chapter
+
+  def update_chapter(self, chapter: CourseChapter, values: dict[str, str | int]) -> CourseChapter:
+    for key, value in values.items():
+      setattr(chapter, key, value)
+    self.db.commit()
+    self.db.refresh(chapter)
+    return chapter
+
+  def delete_chapter(self, chapter: CourseChapter) -> None:
+    self.db.delete(chapter)
+    self.db.commit()

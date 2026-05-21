@@ -21,13 +21,14 @@ http://localhost:8000/docs
 
 ## Configuration
 
-常用环境变量在 `.env.example` 中维护。当前后端会读取数据库、Redis、JWT、CORS、MinIO、大模型和上传限制配置。
+常用环境变量在 `.env.example` 中维护。当前后端会读取数据库、Redis、JWT、CORS、存储后端、MinIO、大模型和上传限制配置。
 
 上传相关默认值：
 
 ```text
 UPLOAD_MAX_SIZE_MB=20
 UPLOAD_ALLOWED_TYPES=application/pdf,image/png,image/jpeg,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document
+STORAGE_BACKEND=local
 ```
 
 本机开发可从 `apps/api/.env.example` 复制 `.env`；Docker Compose 运行时建议从 `deploy/env.example` 复制到 `apps/api/.env`，因为容器网络中的数据库、Redis、MinIO 主机名分别是 `postgres`、`redis`、`minio`。
@@ -35,13 +36,13 @@ UPLOAD_ALLOWED_TYPES=application/pdf,image/png,image/jpeg,text/plain,application
 ## Main Modules
 
 - `auth/users`：注册、登录、当前用户解析、可选用户解析、角色权限工具和个人头像上传。用户名会去空格、小写化，并限制为 3-32 位英文、数字或下划线。
-- `courses`：课程浏览、伴学师课程管理、学生加入/退出课程，响应会返回 `enrollment_count` 和 `joined_by_me`。
-- `forum`：游客浏览帖子和评论，登录用户使用 Markdown 正文和最多 5 个附件发帖、评论、点赞并删除自己的评论，伴学师可删除帖子和评论。
+- `courses`：课程浏览、伴学师课程管理、学生加入/退出课程、章节目录维护，响应会返回 `enrollment_count` 和 `joined_by_me`。
+- `forum`：游客浏览帖子和评论，支持分页、课程筛选、关键词搜索。登录用户使用 Markdown 正文和最多 5 个附件发帖、评论、点赞并删除自己的评论，伴学师可隐藏、恢复、删除帖子和评论。
 - `messages`：登录用户查看消息和未读数；点赞/评论会给帖子作者生成提醒；伴学师可发送私信和面向学生的公告。
-- `files`：课件列表、上传、下载、删除。只有伴学师可上传，且只能删除自己上传的课件。
-- `assistant`：登录后调用 `/api/assistant/messages`，当前仍使用占位检索和占位模型回答。
-- `reports`：登录后返回个人中心统计，包括选课/建课、讨论互动、估算学习投入和建议。
-- `learning_records`：学习事件模型已预留，但业务行为还没有统一写入该表。
+- `files`：课件列表、上传、下载、删除。课件可绑定课程和章节，上传后会抽取文本并写入知识库 chunk。只有伴学师可上传，且只能删除自己上传的课件。
+- `assistant`：登录后调用 `/api/assistant/messages`，按课程资料检索知识库，返回回答、会话 ID 和引用来源；配置大模型后使用 OpenAI 兼容接口，否则使用本地检索式回答。
+- `reports`：登录后返回个人中心统计，包括选课/建课、讨论互动、AI 问答、资料上传、估算学习投入和建议。
+- `learning_records`：统一记录选课、发帖、评论、点赞、上传资料、AI 提问等学习事件，并提供个人时间线接口。
 
 ## API Summary
 
@@ -57,6 +58,10 @@ PUT    /api/courses/{course_id}
 DELETE /api/courses/{course_id}
 POST   /api/courses/{course_id}/enroll
 DELETE /api/courses/{course_id}/enroll
+GET    /api/courses/{course_id}/chapters
+POST   /api/courses/{course_id}/chapters
+PUT    /api/courses/{course_id}/chapters/{chapter_id}
+DELETE /api/courses/{course_id}/chapters/{chapter_id}
 GET    /api/forum/posts
 POST   /api/forum/posts
 GET    /api/forum/attachments/{stored_name}/download
@@ -65,6 +70,7 @@ POST   /api/forum/posts/{post_id}/comments
 DELETE /api/forum/comments/{comment_id}
 POST   /api/forum/posts/{post_id}/like
 DELETE /api/forum/posts/{post_id}
+PATCH  /api/forum/posts/{post_id}/status
 GET    /api/messages
 GET    /api/messages/unread-count
 GET    /api/messages/student-recipients
@@ -77,6 +83,8 @@ POST   /api/files/upload
 GET    /api/files/{file_id}/download
 DELETE /api/files/{file_id}
 POST   /api/assistant/messages
+GET    /api/learning-records
+POST   /api/learning-records
 GET    /api/reports/me
 ```
 
@@ -95,7 +103,7 @@ APP_ENV=test .venv/bin/python -m pytest tests
 当前后端上传分为三类：
 
 - 个人头像：写入后端本地头像目录，并通过用户 `avatar_url` 返回给前端。
-- 课件文件：写入后端本地上传目录，数据库保存文件元数据。
+- 课件文件：默认写入后端本地上传目录，数据库保存文件元数据；`STORAGE_BACKEND=minio` 时会写入 MinIO。文本、Markdown、DOCX 和安装 `pypdf` 后的 PDF 会进入 AI 知识库。
 - 论坛附件：写入 `storage/forum-attachments`，帖子表保存附件 JSON 元数据和下载地址。
 
-MinIO 配置和 Compose 服务已经预留，但当前代码尚未把上述上传切换到对象存储。
+MinIO 配置和 Compose 服务已经预留。Docker 场景建议使用 `STORAGE_BACKEND=minio`，本机开发默认 `local`，便于不启动 MinIO 时也能跑完整闭环。

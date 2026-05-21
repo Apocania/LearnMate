@@ -51,12 +51,12 @@ export function LearningReportPage() {
     <>
       <PageHeader title="个人中心" description="查看学习档案、成长进度和适合你的学习建议。" />
       <Row gutter={[16, 16]}>
-        <Col md={8} xs={24}>
+        <Col lg={6} md={12} xs={24}>
           <Card>
             <Statistic title="估算学习投入" value={report?.estimated_study_hours ?? 0} suffix="小时" />
           </Card>
         </Col>
-        <Col md={8} xs={24}>
+        <Col lg={6} md={12} xs={24}>
           <Card>
             <Statistic
               title={currentUser.role === "student" ? "已加入课程" : "已创建课程"}
@@ -65,9 +65,14 @@ export function LearningReportPage() {
             />
           </Card>
         </Col>
-        <Col md={8} xs={24}>
+        <Col lg={6} md={12} xs={24}>
           <Card>
             <Statistic title="讨论互动" value={(report?.forum_post_count ?? 0) + (report?.forum_comment_count ?? 0)} suffix="次" />
+          </Card>
+        </Col>
+        <Col lg={6} md={12} xs={24}>
+          <Card>
+            <Statistic title="AI 问答/资料" value={`${report?.ai_question_count ?? 0}/${report?.uploaded_file_count ?? 0}`} suffix="次/份" />
           </Card>
         </Col>
       </Row>

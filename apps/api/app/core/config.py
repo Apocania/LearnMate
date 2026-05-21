@@ -21,6 +21,7 @@ class Settings(BaseSettings):
   minio_access_key: str = "minioadmin"
   minio_secret_key: str = "minioadmin"
   minio_bucket: str = "learnmate-materials"
+  storage_backend: str = "local"
   upload_max_size_mb: int = 20
   upload_allowed_types_raw: str = Field(
     default="application/pdf,image/png,image/jpeg,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document",

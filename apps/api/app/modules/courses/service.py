@@ -2,9 +2,17 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import User
-from app.modules.courses.models import Course
+from app.modules.courses.models import Course, CourseChapter
 from app.modules.courses.repository import CourseRepository
-from app.modules.courses.schemas import CourseCreate, CourseResponse, CourseUpdate
+from app.modules.courses.schemas import (
+  CourseChapterCreate,
+  CourseChapterResponse,
+  CourseChapterUpdate,
+  CourseCreate,
+  CourseResponse,
+  CourseUpdate,
+)
+from app.modules.learning_records.service import LearningRecordService
 
 
 class CourseService:
@@ -57,6 +65,12 @@ class CourseService:
     course = self._get_course_or_404(course_id)
     if self.repository.get_enrollment(course.id, current_user.id) is None:
       self.repository.enroll_course(course, current_user.id, current_user.username)
+      LearningRecordService(self.repository.db).record_event(
+        current_user,
+        "course_enrolled",
+        course_id=course.id,
+        metadata={"course_title": course.title},
+      )
     return self._build_course_response(course, current_user)
 
   def leave_course(self, course_id: int, current_user: User) -> CourseResponse:
@@ -65,7 +79,68 @@ class CourseService:
     enrollment = self.repository.get_enrollment(course.id, current_user.id)
     if enrollment is not None:
       self.repository.leave_course(enrollment)
+      LearningRecordService(self.repository.db).record_event(
+        current_user,
+        "course_left",
+        course_id=course.id,
+        metadata={"course_title": course.title},
+      )
     return self._build_course_response(course, current_user)
+
+  def list_chapters(self, course_id: int) -> list[CourseChapterResponse]:
+    self._get_course_or_404(course_id)
+    return [CourseChapterResponse.model_validate(chapter) for chapter in self.repository.list_chapters(course_id)]
+
+  def create_chapter(
+    self,
+    course_id: int,
+    payload: CourseChapterCreate,
+    current_user: User,
+  ) -> CourseChapterResponse:
+    course = self._ensure_course_owner(course_id, current_user)
+    chapter = self.repository.create_chapter(
+      course_id=course.id,
+      title=payload.title,
+      description=payload.description,
+      sort_order=payload.sort_order,
+    )
+    LearningRecordService(self.repository.db).record_event(
+      current_user,
+      "chapter_created",
+      course_id=course.id,
+      metadata={"course_title": course.title, "chapter_title": chapter.title},
+    )
+    return CourseChapterResponse.model_validate(chapter)
+
+  def update_chapter(
+    self,
+    course_id: int,
+    chapter_id: int,
+    payload: CourseChapterUpdate,
+    current_user: User,
+  ) -> CourseChapterResponse:
+    self._ensure_course_owner(course_id, current_user)
+    chapter = self._get_chapter_or_404(chapter_id, course_id)
+    values = payload.model_dump(exclude_unset=True)
+    return CourseChapterResponse.model_validate(self.repository.update_chapter(chapter, values))
+
+  def delete_chapter(self, course_id: int, chapter_id: int, current_user: User) -> None:
+    self._ensure_course_owner(course_id, current_user)
+    chapter = self._get_chapter_or_404(chapter_id, course_id)
+    self.repository.delete_chapter(chapter)
+
+  def _ensure_course_owner(self, course_id: int, current_user: User) -> Course:
+    self._ensure_mentor(current_user)
+    course = self._get_course_or_404(course_id)
+    if course.teacher_id != current_user.id:
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只能管理自己创建的课程")
+    return course
+
+  def _get_chapter_or_404(self, chapter_id: int, course_id: int) -> CourseChapter:
+    chapter = self.repository.get_chapter(chapter_id)
+    if chapter is None or chapter.course_id != course_id:
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="章节不存在")
+    return chapter
 
   def _build_course_response(self, course: Course, current_user: User | None = None) -> CourseResponse:
     joined_by_me = False

@@ -1,8 +1,9 @@
 import { DeleteOutlined, DownloadOutlined, InboxOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, List, Popconfirm, Space, Typography, Upload, message } from "antd";
+import { Alert, Button, Card, Col, List, Popconfirm, Row, Select, Space, Tag, Typography, Upload, message } from "antd";
 import type { UploadProps } from "antd";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { Course, CourseChapter, listCourseChapters, listCourses } from "../api/courses";
 import { FileAsset, deleteFile, getFileDownloadUrl, listFiles, uploadFile } from "../api/files";
 import { PageHeader } from "../components/PageHeader";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
@@ -19,20 +20,53 @@ function formatFileSize(size: number) {
 
 export function FilesPage() {
   const [files, setFiles] = useState<FileAsset[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [chapters, setChapters] = useState<CourseChapter[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
   const currentUser = useCurrentUser();
   const canUpload = currentUser?.role === "mentor";
 
+  const courseTitleById = useMemo(() => new Map(courses.map((course) => [course.id, course.title])), [courses]);
+  const chapterTitleById = useMemo(() => new Map(chapters.map((chapter) => [chapter.id, chapter.title])), [chapters]);
+
   async function refreshFiles() {
     try {
-      setFiles(await listFiles());
+      setFiles(await listFiles({ course_id: selectedCourseId }));
     } catch (error) {
       message.error(error instanceof Error ? error.message : "文件列表加载失败");
     }
   }
 
+  async function refreshCourses() {
+    try {
+      setCourses(await listCourses());
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "课程加载失败");
+    }
+  }
+
+  async function refreshChapters(courseId: number | null) {
+    if (!courseId) {
+      setChapters([]);
+      setSelectedChapterId(null);
+      return;
+    }
+    try {
+      setChapters(await listCourseChapters(courseId));
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "章节加载失败");
+    }
+  }
+
+  useEffect(() => {
+    void refreshCourses();
+  }, []);
+
   useEffect(() => {
     void refreshFiles();
-  }, []);
+    void refreshChapters(selectedCourseId);
+  }, [selectedCourseId]);
 
   const handleUpload: UploadProps["customRequest"] = async (options) => {
     const file = options.file;
@@ -48,9 +82,9 @@ export function FilesPage() {
     }
 
     try {
-      const uploaded = await uploadFile(file);
+      const uploaded = await uploadFile(file, { course_id: selectedCourseId, chapter_id: selectedChapterId });
       options.onSuccess?.(uploaded);
-      message.success("文件已上传");
+      message.success("文件已上传并加入 AI 知识库");
       await refreshFiles();
     } catch (error) {
       options.onError?.(error instanceof Error ? error : new Error("上传失败"));
@@ -70,19 +104,54 @@ export function FilesPage() {
 
   return (
     <>
-      <PageHeader title="文件资料" description="上传、浏览和下载课程相关资料。" />
+      <PageHeader title="文件资料" description="上传、浏览和下载课程相关资料，上传后会自动进入 AI 伴学知识库。" />
+      <Card>
+        <Row gutter={[12, 12]}>
+          <Col md={10} xs={24}>
+            <Select
+              allowClear
+              className="full-width-control"
+              onChange={(value) => {
+                setSelectedCourseId(value ?? null);
+                setSelectedChapterId(null);
+              }}
+              options={courses.map((course) => ({ label: course.title, value: course.id }))}
+              placeholder="筛选或绑定课程"
+              value={selectedCourseId ?? undefined}
+            />
+          </Col>
+          <Col md={10} xs={24}>
+            <Select
+              allowClear
+              className="full-width-control"
+              disabled={!selectedCourseId}
+              onChange={(value) => setSelectedChapterId(value ?? null)}
+              options={chapters.map((chapter) => ({ label: chapter.title, value: chapter.id }))}
+              placeholder="绑定章节，可选"
+              value={selectedChapterId ?? undefined}
+            />
+          </Col>
+          <Col md={4} xs={24}>
+            <Button block onClick={() => void refreshFiles()}>
+              刷新
+            </Button>
+          </Col>
+        </Row>
+      </Card>
+
       {canUpload ? (
-        <Card>
+        <Card className="section-row">
           <Upload.Dragger customRequest={handleUpload} multiple showUploadList={false}>
             <p className="ant-upload-drag-icon">
               <InboxOutlined />
             </p>
             <p className="ant-upload-text">点击或拖拽文件到此处上传</p>
-            <p className="ant-upload-hint">第一版文件存储在后端本地目录，后续可替换为 MinIO。</p>
+            <p className="ant-upload-hint">支持 PDF、图片、文本和 Word 文档；文本类资料会自动切片供 AI 检索。</p>
           </Upload.Dragger>
         </Card>
       ) : (
         <Alert
+          className="section-row"
           message="当前只能浏览和下载课件"
           description="上传课件需要使用伴学师身份登录。"
           showIcon
@@ -116,10 +185,13 @@ export function FilesPage() {
             >
               <List.Item.Meta
                 description={
-                  <Space split={<span>·</span>}>
+                  <Space wrap split={<span>·</span>}>
                     <Typography.Text type="secondary">{file.uploader_name}</Typography.Text>
                     <Typography.Text type="secondary">{formatFileSize(file.size)}</Typography.Text>
                     <Typography.Text type="secondary">{file.content_type}</Typography.Text>
+                    <Tag>{file.storage_provider}</Tag>
+                    {file.course_id ? <Tag color="blue">{courseTitleById.get(file.course_id) ?? `课程 #${file.course_id}`}</Tag> : null}
+                    {file.chapter_id ? <Tag color="cyan">{chapterTitleById.get(file.chapter_id) ?? `章节 #${file.chapter_id}`}</Tag> : null}
                   </Space>
                 }
                 title={file.original_name}

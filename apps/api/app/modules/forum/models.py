@@ -16,6 +16,9 @@ class ForumPost(Base):
   author_id: Mapped[int] = mapped_column(index=True)
   author_name: Mapped[str]
   course_id: Mapped[int | None] = mapped_column(nullable=True, index=True)
+  status: Mapped[str] = mapped_column(default="active", server_default="active", index=True)
+  reviewed_by: Mapped[int | None] = mapped_column(nullable=True, index=True)
+  reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
   created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

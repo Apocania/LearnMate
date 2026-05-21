@@ -10,6 +10,7 @@
 users
 courses
 course_enrollments
+course_chapters
 forum_posts
 forum_comments
 forum_likes
@@ -18,6 +19,8 @@ learning_events
 learning_reports
 user_messages
 assistant_sessions
+assistant_messages
+knowledge_chunks
 ```
 
 ## users
@@ -63,6 +66,20 @@ INDEX(course_id)
 INDEX(student_id)
 ```
 
+## course_chapters
+
+课程章节表。
+
+| Field | Description |
+|---|---|
+| id | 主键 |
+| course_id | 课程 ID，关联 `courses.id`，课程删除时级联删除 |
+| title | 章节标题 |
+| description | 章节说明 |
+| sort_order | 章节排序 |
+| created_at | 创建时间 |
+| updated_at | 更新时间 |
+
 ## forum_posts
 
 | Field | Description |
@@ -74,6 +91,9 @@ INDEX(student_id)
 | author_id | 作者 ID |
 | author_name | 作者用户名快照 |
 | course_id | 可选课程 ID |
+| status | `active` / `hidden`，用于伴学师审核隐藏 |
+| reviewed_by | 最近审核人 ID |
+| reviewed_at | 最近审核时间 |
 | created_at | 创建时间 |
 
 ## forum_comments
@@ -133,11 +153,16 @@ UNIQUE(post_id, user_id)
 | stored_name | 后端本地存储文件名 |
 | content_type | MIME 类型 |
 | size | 文件大小，单位字节 |
+| course_id | 可选课程 ID |
+| chapter_id | 可选章节 ID |
+| storage_provider | `local` / `minio` |
+| object_key | 本地文件名或对象存储 key |
+| public_url | 对象存储公开地址，可为空 |
 | uploader_id | 上传者 ID |
 | uploader_name | 上传者用户名快照 |
 | created_at | 上传时间 |
 
-当前文件内容存放在后端本地上传目录，数据库只保存元数据。MinIO 配置已预留，尚未切换到对象存储。
+当前文件内容默认存放在后端本地上传目录，数据库保存元数据。`STORAGE_BACKEND=minio` 时会写入 MinIO。上传文本类资料后会生成 `knowledge_chunks` 供 AI 检索。
 
 ## learning_events
 
@@ -147,8 +172,10 @@ UNIQUE(post_id, user_id)
 | user_id | 用户 ID |
 | course_id | 可选课程 ID |
 | event_type | 学习事件类型 |
+| event_payload | JSON 字符串形式的事件元数据 |
+| created_at | 创建时间 |
 
-该表已预留，但课程、论坛、AI 等行为还没有完整写入学习记录。
+选课、退课、创建章节、上传资料、发帖、评论、点赞、AI 提问等行为会写入学习记录。
 
 ## learning_reports
 
@@ -161,17 +188,44 @@ UNIQUE(post_id, user_id)
 
 当前 `/api/reports/me` 会基于课程选课/建课和论坛互动做轻量统计；该表本身仍是后续持久化报告的预留结构。
 
+## assistant_messages
+
+| Field | Description |
+|---|---|
+| id | 主键 |
+| session_id | 会话 ID，可为空 |
+| user_id | 用户 ID |
+| course_id | 可选课程 ID |
+| role | `user` / `assistant` |
+| content | 消息内容 |
+| citations | 引用来源 JSON 字符串 |
+| created_at | 创建时间 |
+
+## knowledge_chunks
+
+| Field | Description |
+|---|---|
+| id | 主键 |
+| file_asset_id | 来源课件 ID |
+| course_id | 可选课程 ID |
+| chapter_id | 可选章节 ID |
+| document_id | 文档标识，例如 `file:1` |
+| title | 来源标题 |
+| chunk_index | 切片序号 |
+| content | 切片文本 |
+| keywords | 关键词文本，用于轻量检索 |
+| embedding | 本地哈希 embedding JSON，用于余弦相似度混合检索 |
+| source_url | 来源下载地址 |
+| created_at | 创建时间 |
+
 ## Planned Tables
 
 后续 RAG、课程章节和学习数据闭环建议补充：
 
 ```text
-course_chapters
-course_materials
 forum_attachments
-assistant_messages
 knowledge_documents
-knowledge_chunks
+assistant_feedback
 ```
 
 下一步建议把当前 schema 固化为第一版 Alembic migration，避免继续依赖启动时补丁 SQL。

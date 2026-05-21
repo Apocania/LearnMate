@@ -9,20 +9,27 @@ from app.modules.forum.schemas import (
   ForumCommentCreate,
   ForumCommentResponse,
   ForumLikeResponse,
+  ForumPostPage,
   ForumPostCreate,
   ForumPostResponse,
+  ForumPostStatusUpdate,
 )
 from app.modules.forum.service import ForumService
 
 router = APIRouter()
 
 
-@router.get("/posts", response_model=list[ForumPostResponse])
+@router.get("/posts", response_model=ForumPostPage)
 def list_posts(
+  course_id: int | None = None,
+  keyword: str | None = None,
+  status_filter: str = "active",
+  page: int = 1,
+  page_size: int = 20,
   db: Session = Depends(get_db),
   current_user: User | None = Depends(get_optional_current_user),
-) -> list[ForumPostResponse]:
-  return ForumService(db).list_posts(current_user)
+) -> ForumPostPage:
+  return ForumService(db).list_posts(current_user, course_id, keyword, status_filter, page, page_size)
 
 
 @router.post("/posts", response_model=ForumPostResponse, status_code=status.HTTP_201_CREATED)
@@ -91,3 +98,13 @@ def delete_post(
 ) -> Response:
   ForumService(db).delete_post(post_id, current_user)
   return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/posts/{post_id}/status", response_model=ForumPostResponse)
+def update_post_status(
+  post_id: int,
+  payload: ForumPostStatusUpdate,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> ForumPostResponse:
+  return ForumService(db).update_post_status(post_id, payload.status, current_user)

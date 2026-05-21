@@ -17,10 +17,19 @@ export type ForumPost = {
   author_avatar_url?: string | null;
   attachments: ForumAttachment[];
   course_id: number | null;
+  course_title?: string | null;
+  status: string;
   created_at: string;
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
+};
+
+export type ForumPostPage = {
+  items: ForumPost[];
+  total: number;
+  page: number;
+  page_size: number;
 };
 
 export type ForumComment = {
@@ -34,8 +43,30 @@ export type ForumComment = {
   can_delete: boolean;
 };
 
-export function listPosts() {
-  return request<ForumPost[]>("/forum/posts");
+export function listPosts(params?: {
+  course_id?: number | null;
+  keyword?: string;
+  status_filter?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.course_id) {
+    query.set("course_id", String(params.course_id));
+  }
+  if (params?.keyword) {
+    query.set("keyword", params.keyword);
+  }
+  if (params?.status_filter) {
+    query.set("status_filter", params.status_filter);
+  }
+  if (params?.page) {
+    query.set("page", String(params.page));
+  }
+  if (params?.page_size) {
+    query.set("page_size", String(params.page_size));
+  }
+  return request<ForumPostPage>(`/forum/posts${query.size ? `?${query.toString()}` : ""}`);
 }
 
 export function createPost(payload: { title: string; content: string; course_id?: number | null; attachments?: Blob[] }) {
@@ -85,5 +116,12 @@ export function togglePostLike(postId: number) {
 export function deletePost(postId: number) {
   return request<void>(`/forum/posts/${postId}`, {
     method: "DELETE"
+  });
+}
+
+export function updatePostStatus(postId: number, status: "active" | "hidden") {
+  return request<ForumPost>(`/forum/posts/${postId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
   });
 }

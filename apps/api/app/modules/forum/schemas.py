@@ -43,10 +43,23 @@ class ForumPostResponse(BaseModel):
   author_avatar_url: str | None = None
   attachments: list[ForumAttachmentResponse] = Field(default_factory=list)
   course_id: int | None
+  course_title: str | None = None
+  status: str = "active"
   created_at: datetime
   like_count: int
   comment_count: int
   liked_by_me: bool = False
+
+
+class ForumPostPage(BaseModel):
+  items: list[ForumPostResponse]
+  total: int
+  page: int
+  page_size: int
+
+
+class ForumPostStatusUpdate(BaseModel):
+  status: str
 
 
 class ForumLikeResponse(BaseModel):

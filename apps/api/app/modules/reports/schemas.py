@@ -15,6 +15,8 @@ class MyLearningReport(BaseModel):
   forum_post_count: int
   forum_comment_count: int
   ai_question_count: int
+  uploaded_file_count: int = 0
+  learning_event_count: int = 0
   estimated_study_hours: float
   progress: list[LearningProgressItem]
   recent_activities: list[str]

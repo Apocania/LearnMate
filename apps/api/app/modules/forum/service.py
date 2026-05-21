@@ -16,6 +16,7 @@ from app.modules.forum.schemas import (
   ForumPostResponse,
 )
 from app.modules.messages.service import MessageService
+from app.modules.learning_records.service import LearningRecordService
 
 FORUM_ATTACHMENT_DIR = Path(__file__).resolve().parents[3] / "storage" / "forum-attachments"
 FORUM_ATTACHMENT_TYPES = settings.upload_allowed_types | {"image/webp", "text/markdown"}
@@ -27,10 +28,43 @@ class ForumService:
     self.repository = ForumRepository(db)
     FORUM_ATTACHMENT_DIR.mkdir(parents=True, exist_ok=True)
 
-  def list_posts(self, current_user: User | None = None) -> list[ForumPostResponse]:
-    posts = self.repository.list_posts(current_user.id if current_user else None)
+  def list_posts(
+    self,
+    current_user: User | None = None,
+    course_id: int | None = None,
+    keyword: str | None = None,
+    status_filter: str | None = "active",
+    page: int = 1,
+    page_size: int = 20,
+  ):
+    if status_filter == "all" and current_user and current_user.role != "mentor":
+      status_filter = "active"
+    if not current_user or current_user.role != "mentor":
+      status_filter = "active"
+
+    page = max(page, 1)
+    page_size = min(max(page_size, 1), 50)
+    posts = self.repository.list_posts(
+      course_id=course_id,
+      keyword=keyword,
+      status=status_filter,
+      offset=(page - 1) * page_size,
+      limit=page_size,
+    )
+    total = self.repository.count_posts(course_id=course_id, keyword=keyword, status=status_filter)
     avatar_urls = self.repository.get_user_avatar_urls({post.author_id for post in posts})
-    return [self._build_post_response(post, current_user, avatar_urls.get(post.author_id)) for post in posts]
+    course_titles = self.repository.get_course_titles({post.course_id for post in posts if post.course_id})
+    from app.modules.forum.schemas import ForumPostPage
+
+    return ForumPostPage(
+      items=[
+        self._build_post_response(post, current_user, avatar_urls.get(post.author_id), course_titles.get(post.course_id or 0))
+        for post in posts
+      ],
+      total=total,
+      page=page,
+      page_size=page_size,
+    )
 
   async def create_post(
     self,
@@ -48,6 +82,12 @@ class ForumService:
       course_id=payload.course_id,
       attachments=json.dumps(attachments, ensure_ascii=False),
     )
+    LearningRecordService(self.repository.db).record_event(
+      current_user,
+      "forum_post_created",
+      course_id=payload.course_id,
+      metadata={"post_title": post.title},
+    )
     return self._build_post_response(post, current_user, current_user.avatar_url)
 
   def list_comments(self, post_id: int, current_user: User | None = None) -> list[ForumCommentResponse]:
@@ -64,6 +104,12 @@ class ForumService:
     post = self._get_post_or_404(post_id)
     comment = self.repository.create_comment(post_id, current_user.id, current_user.username, content)
     MessageService(self.repository.db).notify_post_commented(post, comment, current_user)
+    LearningRecordService(self.repository.db).record_event(
+      current_user,
+      "forum_comment_created",
+      course_id=post.course_id,
+      metadata={"post_title": post.title},
+    )
     return self._build_comment_response(comment, current_user.avatar_url, current_user)
 
   def toggle_like(self, post_id: int, current_user: User) -> tuple[bool, int]:
@@ -72,6 +118,12 @@ class ForumService:
     liked = self.repository.toggle_like(post_id, current_user.id)
     if liked:
       MessageService(self.repository.db).notify_post_liked(post, current_user)
+      LearningRecordService(self.repository.db).record_event(
+        current_user,
+        "forum_post_liked",
+        course_id=post.course_id,
+        metadata={"post_title": post.title},
+      )
     return liked, self.repository.count_likes(post_id)
 
   def delete_comment(self, comment_id: int, current_user: User) -> None:
@@ -87,6 +139,14 @@ class ForumService:
     post = self._get_post_or_404(post_id)
     self.repository.delete_post(post)
 
+  def update_post_status(self, post_id: int, next_status: str, current_user: User) -> ForumPostResponse:
+    self._ensure_mentor(current_user)
+    if next_status not in {"active", "hidden"}:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="帖子状态无效")
+    post = self._get_post_or_404(post_id)
+    updated_post = self.repository.update_post_status(post, next_status, current_user.id)
+    return self._build_post_response(updated_post, current_user, None)
+
   def _get_post_or_404(self, post_id: int) -> ForumPost:
     post = self.repository.get_post(post_id)
     if post is None:
@@ -98,6 +158,7 @@ class ForumService:
     post: ForumPost,
     current_user: User | None = None,
     author_avatar_url: str | None = None,
+    course_title: str | None = None,
   ) -> ForumPostResponse:
     liked_by_me = False
     if current_user:
@@ -112,6 +173,8 @@ class ForumService:
       author_avatar_url=author_avatar_url,
       attachments=self._load_attachments(post.attachments),
       course_id=post.course_id,
+      course_title=course_title,
+      status=post.status,
       created_at=post.created_at,
       like_count=self.repository.count_likes(post.id),
       comment_count=self.repository.count_comments(post.id),

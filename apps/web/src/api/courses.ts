@@ -11,6 +11,14 @@ export type Course = {
   joined_by_me: boolean;
 };
 
+export type CourseChapter = {
+  id: number;
+  course_id: number;
+  title: string;
+  description: string;
+  sort_order: number;
+};
+
 export function listCourses() {
   return request<Course[]>("/courses");
 }
@@ -47,6 +55,34 @@ export function enrollCourse(courseId: number) {
 
 export function leaveCourse(courseId: number) {
   return request<Course>(`/courses/${courseId}/enroll`, {
+    method: "DELETE"
+  });
+}
+
+export function listCourseChapters(courseId: number) {
+  return request<CourseChapter[]>(`/courses/${courseId}/chapters`);
+}
+
+export function createCourseChapter(courseId: number, payload: Pick<CourseChapter, "title" | "description" | "sort_order">) {
+  return request<CourseChapter>(`/courses/${courseId}/chapters`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateCourseChapter(
+  courseId: number,
+  chapterId: number,
+  payload: Partial<Pick<CourseChapter, "title" | "description" | "sort_order">>
+) {
+  return request<CourseChapter>(`/courses/${courseId}/chapters/${chapterId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function deleteCourseChapter(courseId: number, chapterId: number) {
+  return request<void>(`/courses/${courseId}/chapters/${chapterId}`, {
     method: "DELETE"
   });
 }

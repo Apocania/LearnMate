@@ -14,6 +14,8 @@ export type MyLearningReport = {
   forum_post_count: number;
   forum_comment_count: number;
   ai_question_count: number;
+  uploaded_file_count: number;
+  learning_event_count: number;
   estimated_study_hours: number;
   progress: LearningProgressItem[];
   recent_activities: string[];

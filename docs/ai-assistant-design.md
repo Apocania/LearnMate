@@ -2,10 +2,10 @@
 
 本文档用于记录 AI 助教模块设计。
 
-AI 伴学第一版目标仍是 RAG：
+AI 伴学第一版目标是轻量 RAG 闭环：
 
 ```text
-用户问题 -> 向量检索课程资料 -> 构造 Prompt -> 调用大模型 -> 返回带引用的回答
+上传课件 -> 抽取文本 -> 切分 chunk -> 用户问题 -> 检索课程资料 -> 构造 Prompt -> 调用大模型或本地回答 -> 返回带引用的回答
 ```
 
 ## Current Status
@@ -15,16 +15,19 @@ AI 伴学第一版目标仍是 RAG：
 - 前端 `/assistant` 页面可以输入问题并调用后端。
 - 游客会看到登录提示，不能直接使用 AI 伴学。
 - 后端 `POST /api/assistant/messages` 需要登录用户，并允许 `student` / `mentor` 使用。
-- 请求结构支持 `content` 和可选 `course_id`。
-- 响应结构包含 `answer` 和 `citations`。
+- 请求结构支持 `content`、可选 `course_id` 和可选 `session_id`。
+- 响应结构包含 `session_id`、`answer` 和 `citations`。
 - 后端已经拆出 `AssistantChatService`、`RetrievalService`、`prompt_builder`、`VectorStore`、`LLMClient` 等边界。
+- 课件上传后会解析文本、切分 chunk 并写入 `knowledge_chunks`。
+- `VectorStore.search()` 已实现本地 embedding 余弦相似度 + 关键词的混合资料检索。
+- `LLMClient.chat()` 支持 OpenAI 兼容大模型配置；未配置时使用本地检索式回答。
+- AI 问答会写入 `assistant_sessions`、`assistant_messages` 和 `learning_events`。
 
-当前仍是占位：
+当前仍可继续增强：
 
-- `VectorStore.search()` 暂未真正检索课程资料。
-- `LLMClient.chat()` 暂未调用真实大模型。
-- `citations` 当前返回空列表。
-- 对话记录、流式输出和用户反馈尚未落库。
+- 本地 embedding 检索可升级为 pgvector 原生索引和外部 embedding 模型。
+- PDF 解析依赖 `pypdf`；图片 OCR 尚未接入。
+- 流式输出、用户反馈和多轮上下文精细控制仍可继续完善。
 
 ## Runtime Flow
 
@@ -43,11 +46,9 @@ AssistantPage.tsx
 
 ## Next Steps
 
-1. 上传课件后解析文本。
-2. 将文本切分为 chunk。
-3. 生成 embedding。
-4. 存入 pgvector。
-5. 提问时按 `course_id` 检索相关资料。
-6. 调用真实大模型。
-7. 返回回答和引用来源。
-8. 保存会话和消息记录。
+1. 为 `knowledge_chunks` 增加 embedding 字段和 pgvector 索引。
+2. 上传课件时生成 embedding。
+3. 提问时按 `course_id` 和相似度检索相关资料。
+4. 增加 SSE 流式输出。
+5. 增加回答点赞/点踩反馈。
+6. 增加会话列表和历史消息查询接口。

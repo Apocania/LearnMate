@@ -1,23 +1,78 @@
-import { ArrowLeftOutlined, BookOutlined, TeamOutlined, UserAddOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Col, Descriptions, Row, Space, Spin, Tag, Typography, message } from "antd";
-import { useEffect, useState } from "react";
+import {
+  ArrowLeftOutlined,
+  BookOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  FileAddOutlined,
+  PlusOutlined,
+  TeamOutlined,
+  UserAddOutlined
+} from "@ant-design/icons";
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Form,
+  Input,
+  InputNumber,
+  List,
+  Modal,
+  Popconfirm,
+  Row,
+  Space,
+  Spin,
+  Tag,
+  Typography,
+  Upload,
+  message
+} from "antd";
+import type { UploadProps } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { Course, enrollCourse, getCourse, leaveCourse } from "../api/courses";
+import {
+  Course,
+  CourseChapter,
+  createCourseChapter,
+  deleteCourseChapter,
+  enrollCourse,
+  getCourse,
+  leaveCourse,
+  listCourseChapters,
+  updateCourseChapter
+} from "../api/courses";
+import { FileAsset, getFileDownloadUrl, listFiles, uploadFile } from "../api/files";
 import { PageHeader } from "../components/PageHeader";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
+
+type ChapterFormValues = {
+  title: string;
+  description: string;
+  sort_order: number;
+};
 
 export function CourseDetailPage() {
   const navigate = useNavigate();
   const { courseId } = useParams();
   const currentUser = useCurrentUser();
+  const [form] = Form.useForm<ChapterFormValues>();
   const [course, setCourse] = useState<Course | null>(null);
+  const [chapters, setChapters] = useState<CourseChapter[]>([]);
+  const [files, setFiles] = useState<FileAsset[]>([]);
+  const [editingChapter, setEditingChapter] = useState<CourseChapter | null>(null);
+  const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
+  const [uploadingChapterId, setUploadingChapterId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const isStudent = currentUser?.role === "student";
+  const isCourseOwner = currentUser?.role === "mentor" && currentUser.id === course?.teacher_id;
 
-  async function refreshCourse() {
-    const numericCourseId = Number(courseId);
+  const numericCourseId = useMemo(() => Number(courseId), [courseId]);
+
+  async function refreshCourseBundle() {
     if (!Number.isInteger(numericCourseId) || numericCourseId <= 0) {
       message.error("课程地址无效");
       navigate("/courses");
@@ -26,7 +81,14 @@ export function CourseDetailPage() {
 
     setIsLoading(true);
     try {
-      setCourse(await getCourse(numericCourseId));
+      const [nextCourse, nextChapters, nextFiles] = await Promise.all([
+        getCourse(numericCourseId),
+        listCourseChapters(numericCourseId),
+        listFiles({ course_id: numericCourseId })
+      ]);
+      setCourse(nextCourse);
+      setChapters(nextChapters);
+      setFiles(nextFiles);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "课程加载失败");
       navigate("/courses");
@@ -36,8 +98,17 @@ export function CourseDetailPage() {
   }
 
   useEffect(() => {
-    void refreshCourse();
-  }, [courseId]);
+    void refreshCourseBundle();
+  }, [numericCourseId]);
+
+  async function refreshChaptersAndFiles() {
+    const [nextChapters, nextFiles] = await Promise.all([
+      listCourseChapters(numericCourseId),
+      listFiles({ course_id: numericCourseId })
+    ]);
+    setChapters(nextChapters);
+    setFiles(nextFiles);
+  }
 
   async function handleToggleEnrollment() {
     if (!course || !isStudent) {
@@ -57,6 +128,79 @@ export function CourseDetailPage() {
     }
   }
 
+  function openCreateChapterModal() {
+    setEditingChapter(null);
+    form.setFieldsValue({ title: "", description: "", sort_order: chapters.length + 1 });
+    setIsChapterModalOpen(true);
+  }
+
+  function openEditChapterModal(chapter: CourseChapter) {
+    setEditingChapter(chapter);
+    form.setFieldsValue({
+      title: chapter.title,
+      description: chapter.description,
+      sort_order: chapter.sort_order
+    });
+    setIsChapterModalOpen(true);
+  }
+
+  async function handleChapterSubmit(values: ChapterFormValues) {
+    if (!course) {
+      return;
+    }
+    try {
+      if (editingChapter) {
+        await updateCourseChapter(course.id, editingChapter.id, values);
+        message.success("章节已更新");
+      } else {
+        await createCourseChapter(course.id, values);
+        message.success("章节已创建");
+      }
+      setIsChapterModalOpen(false);
+      await refreshChaptersAndFiles();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "章节保存失败");
+    }
+  }
+
+  async function handleDeleteChapter(chapter: CourseChapter) {
+    if (!course) {
+      return;
+    }
+    try {
+      await deleteCourseChapter(course.id, chapter.id);
+      message.success("章节已删除");
+      await refreshChaptersAndFiles();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "章节删除失败");
+    }
+  }
+
+  function createUploadRequest(chapterId: number | null): UploadProps["customRequest"] {
+    return async (options) => {
+      if (!course) {
+        return;
+      }
+      const file = options.file;
+      if (!(file instanceof File)) {
+        options.onError?.(new Error("请选择有效文件"));
+        return;
+      }
+      setUploadingChapterId(chapterId ?? 0);
+      try {
+        const uploaded = await uploadFile(file, { course_id: course.id, chapter_id: chapterId });
+        options.onSuccess?.(uploaded);
+        message.success("课件已上传并加入知识库");
+        await refreshChaptersAndFiles();
+      } catch (error) {
+        options.onError?.(error instanceof Error ? error : new Error("上传失败"));
+        message.error(error instanceof Error ? error.message : "上传失败");
+      } finally {
+        setUploadingChapterId(null);
+      }
+    };
+  }
+
   if (isLoading) {
     return (
       <div className="page-loading">
@@ -71,7 +215,7 @@ export function CourseDetailPage() {
 
   return (
     <>
-      <PageHeader title={course.title} description="查看课程介绍、状态、伴学师和选课信息。" />
+      <PageHeader title={course.title} description="查看课程介绍、章节目录、课件资料和选课信息。" />
       <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/courses")}>
         返回课程中心
       </Button>
@@ -80,7 +224,7 @@ export function CourseDetailPage() {
         <Alert
           className="section-row"
           message="当前为游客浏览模式"
-          description="登录学生身份后可以加入或退出课程。"
+          description="登录学生身份后可以加入或退出课程，登录伴学师身份后可以维护章节和课件。"
           showIcon
           type="info"
         />
@@ -101,10 +245,78 @@ export function CourseDetailPage() {
               </Space>
             </Space>
           </Card>
-          <Card className="section-row" title="后续规划">
-            <Typography.Paragraph type="secondary">
-              章节目录、课程课件绑定和课程内讨论筛选尚未接入；当前详情页展示真实课程基础信息和选课状态。
-            </Typography.Paragraph>
+
+          <Card
+            className="section-row"
+            extra={
+              isCourseOwner ? (
+                <Button icon={<PlusOutlined />} onClick={openCreateChapterModal} type="primary">
+                  新建章节
+                </Button>
+              ) : null
+            }
+            title="章节与课件"
+          >
+            <List
+              className="chapter-list"
+              dataSource={chapters}
+              locale={{ emptyText: "暂无章节" }}
+              renderItem={(chapter) => {
+                const chapterFiles = files.filter((file) => file.chapter_id === chapter.id);
+                return (
+                  <List.Item className="chapter-item">
+                    <Space className="chapter-content" direction="vertical" size={12}>
+                      <div className="chapter-heading">
+                        <Space wrap>
+                          <Tag color="blue">第 {chapter.sort_order} 节</Tag>
+                          <Typography.Text strong>{chapter.title}</Typography.Text>
+                        </Space>
+                        {isCourseOwner ? (
+                          <Space>
+                            <Button icon={<EditOutlined />} onClick={() => openEditChapterModal(chapter)}>
+                              编辑
+                            </Button>
+                            <Popconfirm
+                              okText="删除"
+                              onConfirm={() => void handleDeleteChapter(chapter)}
+                              title="确认删除这个章节？"
+                            >
+                              <Button danger icon={<DeleteOutlined />}>
+                                删除
+                              </Button>
+                            </Popconfirm>
+                          </Space>
+                        ) : null}
+                      </div>
+                      {chapter.description ? (
+                        <Typography.Paragraph type="secondary">{chapter.description}</Typography.Paragraph>
+                      ) : null}
+                      <Space className="chapter-file-row" wrap>
+                        {chapterFiles.map((file) => (
+                          <Button href={getFileDownloadUrl(file)} icon={<DownloadOutlined />} key={file.id} target="_blank">
+                            {file.original_name}
+                          </Button>
+                        ))}
+                        {isCourseOwner ? (
+                          <Upload customRequest={createUploadRequest(chapter.id)} maxCount={1} showUploadList={false}>
+                            <Button icon={<FileAddOutlined />} loading={uploadingChapterId === chapter.id}>
+                              上传到本章节
+                            </Button>
+                          </Upload>
+                        ) : null}
+                      </Space>
+                    </Space>
+                  </List.Item>
+                );
+              }}
+            />
+            {isCourseOwner ? (
+              <Upload customRequest={createUploadRequest(null)} maxCount={1} showUploadList={false}>
+                <Button className="section-row" icon={<FileAddOutlined />} loading={uploadingChapterId === 0}>
+                  上传课程通用课件
+                </Button>
+              </Upload>
+            ) : null}
           </Card>
         </Col>
         <Col lg={8} xs={24}>
@@ -114,6 +326,8 @@ export function CourseDetailPage() {
                 <TeamOutlined /> {course.teacher_name}
               </Descriptions.Item>
               <Descriptions.Item label="学习人数">{course.enrollment_count}</Descriptions.Item>
+              <Descriptions.Item label="章节数量">{chapters.length}</Descriptions.Item>
+              <Descriptions.Item label="课件数量">{files.length}</Descriptions.Item>
               <Descriptions.Item label="课程状态">{course.status === "published" ? "已发布" : "草稿"}</Descriptions.Item>
             </Descriptions>
             {isStudent ? (
@@ -131,6 +345,27 @@ export function CourseDetailPage() {
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        destroyOnHidden
+        okText={editingChapter ? "保存修改" : "创建章节"}
+        onCancel={() => setIsChapterModalOpen(false)}
+        onOk={() => form.submit()}
+        open={isChapterModalOpen}
+        title={editingChapter ? "编辑章节" : "新建章节"}
+      >
+        <Form form={form} layout="vertical" onFinish={handleChapterSubmit}>
+          <Form.Item label="章节标题" name="title" rules={[{ required: true, message: "请输入章节标题" }]}>
+            <Input placeholder="例如：第 1 章 课程导论" />
+          </Form.Item>
+          <Form.Item label="章节说明" name="description">
+            <Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} placeholder="补充章节目标、内容或学习提示" />
+          </Form.Item>
+          <Form.Item label="排序" name="sort_order" rules={[{ required: true, message: "请输入排序" }]}>
+            <InputNumber min={1} precision={0} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
 }

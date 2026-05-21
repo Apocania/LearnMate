@@ -7,7 +7,7 @@ import {
   RobotOutlined,
   UserOutlined
 } from "@ant-design/icons";
-import { Badge, Button, Layout, Modal, Space, Typography, Upload, message } from "antd";
+import { Badge, Button, Layout, Modal, Space, Tooltip, Typography, Upload, message } from "antd";
 import type { UploadProps } from "antd";
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -22,7 +22,6 @@ const navItems = [
   { key: "/courses", icon: <BookOutlined />, label: "课程中心" },
   { key: "/forum", icon: <MessageOutlined />, label: "讨论交流" },
   { key: "/assistant", icon: <RobotOutlined />, label: "AI伴学" },
-  { key: "/messages", icon: <NotificationOutlined />, label: "消息中心" },
   { key: "/reports/me", icon: <UserOutlined />, label: "个人中心" }
 ];
 
@@ -90,7 +89,7 @@ export function AppLayout() {
           </span>
           <span className="brand-copy">
             <Typography.Text className="brand-title">LearnMate</Typography.Text>
-            <Typography.Text className="brand-subtitle">快乐学习伙伴</Typography.Text>
+            <Typography.Text className="brand-subtitle">智能学习伙伴</Typography.Text>
           </span>
         </button>
 
@@ -102,13 +101,7 @@ export function AppLayout() {
               type="button"
               onClick={() => navigate(item.key)}
             >
-              {item.key === "/messages" ? (
-                <Badge count={currentUser ? unreadCount : 0} size="small">
-                  <span className="nav-icon-with-badge">{item.icon}</span>
-                </Badge>
-              ) : (
-                item.icon
-              )}
+              {item.icon}
               <span>{item.label}</span>
             </button>
           ))}
@@ -117,6 +110,13 @@ export function AppLayout() {
         <div className="header-actions">
           {currentUser ? (
             <>
+              <Tooltip title="消息中心">
+                <button className="message-icon-button" type="button" onClick={() => navigate("/messages")}>
+                  <Badge count={unreadCount} size="small">
+                    <NotificationOutlined />
+                  </Badge>
+                </button>
+              </Tooltip>
               <button className="user-avatar-button" type="button" onClick={() => setIsProfileOpen(true)}>
                 <UserAvatar avatarUrl={currentUser.avatar_url} size={46} username={currentUser.username} />
                 <span className="user-meta">

@@ -1,8 +1,19 @@
-import { DeleteOutlined, DownloadOutlined, LikeFilled, LikeOutlined, MessageOutlined, PlusOutlined, SendOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Input, List, Popconfirm, Space, Tag, Typography, message } from "antd";
+import {
+  DeleteOutlined,
+  DownloadOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  LikeFilled,
+  LikeOutlined,
+  MessageOutlined,
+  PlusOutlined,
+  SendOutlined
+} from "@ant-design/icons";
+import { Alert, Button, Card, Input, List, Pagination, Popconfirm, Select, Space, Tag, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { Course, listCourses } from "../api/courses";
 import {
   ForumComment,
   ForumPost,
@@ -12,7 +23,8 @@ import {
   getForumAttachmentDownloadUrl,
   listComments,
   listPosts,
-  togglePostLike
+  togglePostLike,
+  updatePostStatus
 } from "../api/forum";
 import { PageHeader } from "../components/PageHeader";
 import { UserAvatar } from "../components/UserAvatar";
@@ -20,9 +32,17 @@ import { formatDate } from "../shared/utils/formatDate";
 import { renderMarkdown } from "../shared/utils/markdown";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
+const PAGE_SIZE = 10;
+
 export function ForumPage() {
   const navigate = useNavigate();
+  const [courses, setCourses] = useState<Course[]>([]);
   const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [keyword, setKeyword] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [commentsByPostId, setCommentsByPostId] = useState<Record<number, ForumComment[]>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
@@ -32,12 +52,28 @@ export function ForumPage() {
   const canDiscuss = Boolean(currentUser);
   const canManageForum = currentUser?.role === "mentor";
 
-  async function refreshPosts() {
+  async function refreshPosts(nextPage = page) {
     try {
-      const nextPosts = await listPosts();
-      setPosts(nextPosts);
+      const result = await listPosts({
+        course_id: selectedCourseId,
+        keyword: keyword.trim(),
+        status_filter: canManageForum ? statusFilter : "active",
+        page: nextPage,
+        page_size: PAGE_SIZE
+      });
+      setPosts(result.items);
+      setTotal(result.total);
+      setPage(result.page);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "帖子加载失败");
+    }
+  }
+
+  async function refreshCourses() {
+    try {
+      setCourses(await listCourses());
+    } catch {
+      setCourses([]);
     }
   }
 
@@ -54,8 +90,12 @@ export function ForumPage() {
   }
 
   useEffect(() => {
-    void refreshPosts();
+    void refreshCourses();
   }, []);
+
+  useEffect(() => {
+    void refreshPosts(1);
+  }, [selectedCourseId, statusFilter]);
 
   async function handleToggleComments(post: ForumPost) {
     if (expandedPostId === post.id) {
@@ -137,6 +177,16 @@ export function ForumPage() {
     }
   }
 
+  async function handleTogglePostStatus(post: ForumPost) {
+    try {
+      await updatePostStatus(post.id, post.status === "hidden" ? "active" : "hidden");
+      message.success(post.status === "hidden" ? "帖子已恢复" : "帖子已隐藏");
+      await refreshPosts();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "状态更新失败");
+    }
+  }
+
   return (
     <>
       <PageHeader title="讨论交流" description="和同学、伴学师一起提问、分享想法和完成答疑。" />
@@ -149,6 +199,39 @@ export function ForumPage() {
           type="info"
         />
       ) : null}
+      <Card className="toolbar-card">
+        <Space wrap>
+          <Select
+            allowClear
+            onChange={(value) => setSelectedCourseId(value ?? null)}
+            options={courses.map((course) => ({ label: course.title, value: course.id }))}
+            placeholder="按课程筛选"
+            style={{ width: 220 }}
+            value={selectedCourseId ?? undefined}
+          />
+          <Input.Search
+            allowClear
+            onChange={(event) => setKeyword(event.target.value)}
+            onSearch={() => void refreshPosts(1)}
+            placeholder="搜索标题或内容"
+            style={{ width: 260 }}
+            value={keyword}
+          />
+          {canManageForum ? (
+            <Select
+              onChange={setStatusFilter}
+              options={[
+                { label: "显示正常帖子", value: "active" },
+                { label: "显示隐藏帖子", value: "hidden" },
+                { label: "显示全部", value: "all" }
+              ]}
+              style={{ width: 160 }}
+              value={statusFilter}
+            />
+          ) : null}
+          <Button onClick={() => void refreshPosts(1)}>刷新</Button>
+        </Space>
+      </Card>
       <Card
         extra={
           <Button disabled={!canDiscuss} icon={<PlusOutlined />} onClick={() => navigate("/forum/new")} type="primary">
@@ -166,6 +249,13 @@ export function ForumPage() {
               <div className="forum-post-body">
                 {canManageForum ? (
                   <div className="forum-post-manage">
+                    <Button
+                      icon={post.status === "hidden" ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                      onClick={() => void handleTogglePostStatus(post)}
+                      type="link"
+                    >
+                      {post.status === "hidden" ? "恢复" : "隐藏"}
+                    </Button>
                     <Popconfirm
                       okText="删除"
                       onConfirm={() => void handleDeletePost(post)}
@@ -184,7 +274,8 @@ export function ForumPage() {
                       <Typography.Text className="forum-post-title" strong>
                         {post.title}
                       </Typography.Text>
-                      {post.course_id ? <Tag>课程 #{post.course_id}</Tag> : <Tag>通用讨论</Tag>}
+                      {post.course_id ? <Tag>{post.course_title ?? `课程 #${post.course_id}`}</Tag> : <Tag>通用讨论</Tag>}
+                      {post.status === "hidden" ? <Tag color="red">已隐藏</Tag> : null}
                     </Space>
                   }
                   description={
@@ -328,6 +419,14 @@ export function ForumPage() {
               </div>
             </List.Item>
           )}
+        />
+        <Pagination
+          className="forum-pagination"
+          current={page}
+          onChange={(nextPage) => void refreshPosts(nextPage)}
+          pageSize={PAGE_SIZE}
+          showSizeChanger={false}
+          total={total}
         />
       </Card>
     </>

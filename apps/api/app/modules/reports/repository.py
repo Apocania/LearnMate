@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.modules.courses.models import Course, CourseEnrollment
 from app.modules.forum.models import ForumComment, ForumPost
+from app.modules.assistant.models import AssistantMessage
+from app.modules.files.models import FileAsset
+from app.modules.learning_records.models import LearningEvent
 
 
 class LearningReportRepository:
@@ -22,6 +25,22 @@ class LearningReportRepository:
 
   def count_forum_comments(self, user_id: int) -> int:
     return self.db.scalar(select(func.count()).select_from(ForumComment).where(ForumComment.author_id == user_id)) or 0
+
+  def count_ai_questions(self, user_id: int) -> int:
+    return (
+      self.db.scalar(
+        select(func.count())
+        .select_from(AssistantMessage)
+        .where(AssistantMessage.user_id == user_id, AssistantMessage.role == "user")
+      )
+      or 0
+    )
+
+  def count_uploaded_files(self, user_id: int) -> int:
+    return self.db.scalar(select(func.count()).select_from(FileAsset).where(FileAsset.uploader_id == user_id)) or 0
+
+  def count_learning_events(self, user_id: int) -> int:
+    return self.db.scalar(select(func.count()).select_from(LearningEvent).where(LearningEvent.user_id == user_id)) or 0
 
   def list_recent_course_titles(self, user_id: int, limit: int = 3) -> list[str]:
     course_ids = list(
@@ -43,5 +62,15 @@ class LearningReportRepository:
     return list(
       self.db.scalars(
         select(Course.title).where(Course.teacher_id == user_id).order_by(Course.id.desc()).limit(limit)
+      ).all()
+    )
+
+  def list_recent_events(self, user_id: int, limit: int = 5) -> list[LearningEvent]:
+    return list(
+      self.db.scalars(
+        select(LearningEvent)
+        .where(LearningEvent.user_id == user_id)
+        .order_by(LearningEvent.created_at.desc(), LearningEvent.id.desc())
+        .limit(limit)
       ).all()
     )
