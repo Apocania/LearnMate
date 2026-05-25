@@ -25,8 +25,15 @@ class FileService:
     self.storage = ObjectStorageClient()
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-  def list_files(self, course_id: int | None = None, chapter_id: int | None = None) -> list[FileAssetResponse]:
-    return [self._to_response(file_asset) for file_asset in self.repository.list_files(course_id, chapter_id)]
+  def list_files(
+    self,
+    course_id: int | None = None,
+    chapter_id: int | None = None,
+    current_user: User | None = None,
+  ) -> list[FileAssetResponse]:
+    file_assets = self.repository.list_files(course_id, chapter_id)
+    visible_files = [file_asset for file_asset in file_assets if self._is_file_visible(file_asset, current_user)]
+    return [self._to_response(file_asset) for file_asset in visible_files]
 
   async def upload_file(
     self,
@@ -75,26 +82,28 @@ class FileService:
     )
     return self._to_response(file_asset)
 
-  def get_file(self, file_id: int) -> FileAsset:
+  def get_file(self, file_id: int, current_user: User | None = None) -> FileAsset:
     file_asset = self.repository.get_file(file_id)
     if file_asset is None:
       raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
+    if not self._is_file_visible(file_asset, current_user):
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
     return file_asset
 
-  def get_file_path(self, file_id: int) -> tuple[FileAsset, Path]:
-    file_asset = self.get_file(file_id)
+  def get_file_path(self, file_id: int, current_user: User | None = None) -> tuple[FileAsset, Path]:
+    file_asset = self.get_file(file_id, current_user)
     if file_asset.storage_provider != "local":
       raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="当前文件不在本地存储")
     path = self.storage.get_local_path(file_asset.object_key or file_asset.stored_name)
     return file_asset, path
 
-  def get_file_bytes(self, file_id: int) -> tuple[FileAsset, bytes]:
-    file_asset = self.get_file(file_id)
+  def get_file_bytes(self, file_id: int, current_user: User | None = None) -> tuple[FileAsset, bytes]:
+    file_asset = self.get_file(file_id, current_user)
     data = self.storage.read_object(file_asset.object_key or file_asset.stored_name, file_asset.storage_provider)
     return file_asset, data
 
   def delete_file(self, file_id: int, current_user: User) -> None:
-    file_asset = self.get_file(file_id)
+    file_asset = self.get_file(file_id, current_user)
     if current_user.role != "mentor":
       raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只有伴学师可以删除课件")
     if file_asset.uploader_id != current_user.id:
@@ -119,6 +128,16 @@ class FileService:
       chapter = self.course_repository.get_chapter(chapter_id)
       if chapter is None or chapter.course_id != course_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="章节不存在")
+
+  def _is_file_visible(self, file_asset: FileAsset, current_user: User | None) -> bool:
+    if file_asset.course_id is None:
+      return True
+    course = self.course_repository.get_course(file_asset.course_id)
+    if course is None:
+      return False
+    if course.status == "published":
+      return True
+    return bool(current_user and current_user.role == "mentor" and course.teacher_id == current_user.id)
 
   def _to_response(self, file_asset: FileAsset) -> FileAssetResponse:
     return FileAssetResponse(

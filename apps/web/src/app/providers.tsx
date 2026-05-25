@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
+import { ConfigProvider } from "antd";
+import zhCN from "antd/locale/zh_CN";
 
 type AppProvidersProps = {
   children: ReactNode;
 };
 
 export function AppProviders({ children }: AppProvidersProps) {
-  return children;
+  return <ConfigProvider locale={zhCN}>{children}</ConfigProvider>;
 }
-

@@ -13,10 +13,11 @@ def test_course_chapters_can_be_listed_publicly() -> None:
   def override_db() -> Iterator[object]:
     yield object()
 
-  def list_chapters_for_test(self: CourseService, course_id: int):
+  def list_chapters_for_test(self: CourseService, course_id: int, current_user=None):
     from app.modules.courses.schemas import CourseChapterResponse
 
     assert course_id == 5
+    assert current_user is None
     return [CourseChapterResponse(id=1, course_id=5, title="导论", description="课程目标", sort_order=1)]
 
   original_method = CourseService.list_chapters

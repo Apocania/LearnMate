@@ -1,5 +1,7 @@
 # LearnMate API
 
+更新日期：2026-05-23
+
 LearnMate 的 FastAPI 后端应用。
 
 ## Development
@@ -9,7 +11,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 访问：
@@ -98,6 +100,18 @@ APP_ENV=test .venv/bin/python -m pytest tests
 
 `APP_ENV=test` 会跳过启动时的数据库初始化，便于运行不依赖真实数据库的轻量测试。
 
+## Demo Data
+
+截图展示前可运行演示数据脚本，它会生成儿童学习主题课程、章节、课件、讨论、评论、消息、AI 会话、学习轨迹和演示头像：
+
+```bash
+.venv/bin/python scripts/seed_demo_data.py
+```
+
+演示账号：`demo_student / password123`，`demo_mentor / password123`。
+
+脚本会写入本地数据库并生成少量本地课件文本文件；重复运行会更新演示账号、课程和部分演示记录，适合作为截图前的数据重置入口。
+
 ## Storage Notes
 
 当前后端上传分为三类：
@@ -107,3 +121,9 @@ APP_ENV=test .venv/bin/python -m pytest tests
 - 论坛附件：写入 `storage/forum-attachments`，帖子表保存附件 JSON 元数据和下载地址。
 
 MinIO 配置和 Compose 服务已经预留。Docker 场景建议使用 `STORAGE_BACKEND=minio`，本机开发默认 `local`，便于不启动 MinIO 时也能跑完整闭环。
+
+## AI Notes
+
+AI 伴学当前已经具备轻量 RAG 闭环：课件上传后抽取文本、切分 chunk、写入知识库；提问时按课程资料做本地 embedding + 关键词混合检索，并返回引用来源。未配置大模型时使用本地检索式回答；配置 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 后会调用 OpenAI 兼容接口。
+
+接入真实模型前建议继续补齐：输入长度限制、每用户限流、`max_tokens`、拒答边界、输出安全检查和模型调用审计。

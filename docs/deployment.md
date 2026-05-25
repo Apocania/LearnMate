@@ -1,5 +1,7 @@
 # Deployment
 
+更新日期：2026-05-23
+
 本文档用于记录部署方式。
 
 第一版建议使用 Docker Compose 启动：
@@ -60,6 +62,22 @@ MinIO 控制台：http://localhost:9001
 
 ## Current Limitations
 
-- 数据库迁移仍未正式 Alembic 化，当前开发阶段依赖 `create_all()` 和少量启动补丁 SQL。
-- MinIO 服务已在 Compose 中预留，但课件、头像和论坛附件上传代码仍写入后端本地目录。
-- AI 伴学接口已打通，但真实大模型和向量检索仍待接入。
+- 项目已提供 Alembic 初始迁移；开发启动仍保留 `create_all()` 和补丁 SQL 以兼容旧库，生产化时建议收敛到 Alembic 迁移流程。
+- 课件上传支持 `STORAGE_BACKEND=local` 和 `STORAGE_BACKEND=minio`；头像和论坛附件仍写入 API 本地目录，需要通过持久化卷或后续对象存储迁移保证可靠性。
+- AI 伴学已具备本地检索式回答和 OpenAI 兼容模型接入入口；生产使用前仍建议补充输入限制、限流、内容安全、流式输出和更完整的审计日志。
+
+## Demo Data
+
+用于截图或演示时，可以在后端环境运行：
+
+```bash
+cd apps/api
+.venv/bin/python scripts/seed_demo_data.py
+```
+
+演示账号：
+
+```text
+demo_student / password123
+demo_mentor / password123
+```

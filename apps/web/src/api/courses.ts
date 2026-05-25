@@ -19,6 +19,14 @@ export type CourseChapter = {
   sort_order: number;
 };
 
+export type CourseEnrollment = {
+  id: number;
+  course_id: number;
+  student_id: number;
+  student_name: string;
+  created_at: string;
+};
+
 export function listCourses() {
   return request<Course[]>("/courses");
 }
@@ -83,6 +91,16 @@ export function updateCourseChapter(
 
 export function deleteCourseChapter(courseId: number, chapterId: number) {
   return request<void>(`/courses/${courseId}/chapters/${chapterId}`, {
+    method: "DELETE"
+  });
+}
+
+export function listCourseEnrollments(courseId: number) {
+  return request<CourseEnrollment[]>(`/courses/${courseId}/enrollments`);
+}
+
+export function removeCourseEnrollment(courseId: number, enrollmentId: number) {
+  return request<void>(`/courses/${courseId}/enrollments/${enrollmentId}`, {
     method: "DELETE"
   });
 }

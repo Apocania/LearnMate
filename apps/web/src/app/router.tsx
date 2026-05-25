@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "../components/AppLayout";
 
 const AssistantPage = lazy(() => import("../pages/AssistantPage").then((module) => ({ default: module.AssistantPage })));
+const CourseCreatePage = lazy(() => import("../pages/CourseCreatePage").then((module) => ({ default: module.CourseCreatePage })));
 const CourseDetailPage = lazy(() => import("../pages/CourseDetailPage").then((module) => ({ default: module.CourseDetailPage })));
 const CourseListPage = lazy(() => import("../pages/CourseListPage").then((module) => ({ default: module.CourseListPage })));
 const DashboardPage = lazy(() => import("../pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: lazyPage(<DashboardPage />) },
       { path: "courses", element: lazyPage(<CourseListPage />) },
+      { path: "courses/new", element: lazyPage(<CourseCreatePage />) },
       { path: "courses/:courseId", element: lazyPage(<CourseDetailPage />) },
       { path: "forum", element: lazyPage(<ForumPage />) },
       { path: "forum/new", element: lazyPage(<ForumPostEditorPage />) },

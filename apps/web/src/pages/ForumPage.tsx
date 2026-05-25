@@ -9,7 +9,7 @@ import {
   PlusOutlined,
   SendOutlined
 } from "@ant-design/icons";
-import { Alert, Button, Card, Input, List, Pagination, Popconfirm, Select, Space, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Input, List, Pagination, Popconfirm, Select, Space, Typography, message } from "antd";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -257,6 +257,7 @@ export function ForumPage() {
                       {post.status === "hidden" ? "恢复" : "隐藏"}
                     </Button>
                     <Popconfirm
+                      cancelText="取消"
                       okText="删除"
                       onConfirm={() => void handleDeletePost(post)}
                       title="确认删除这条帖子？"
@@ -274,8 +275,9 @@ export function ForumPage() {
                       <Typography.Text className="forum-post-title" strong>
                         {post.title}
                       </Typography.Text>
-                      {post.course_id ? <Tag>{post.course_title ?? `课程 #${post.course_id}`}</Tag> : <Tag>通用讨论</Tag>}
-                      {post.status === "hidden" ? <Tag color="red">已隐藏</Tag> : null}
+                      {canManageForum && post.status === "hidden" ? (
+                        <Typography.Text type="danger">已隐藏</Typography.Text>
+                      ) : null}
                     </Space>
                   }
                   description={
@@ -353,6 +355,7 @@ export function ForumPage() {
                           actions={[
                             comment.can_delete ? (
                               <Popconfirm
+                                cancelText="取消"
                                 key="delete"
                                 okText="删除"
                                 onConfirm={() => void handleDeleteComment(comment)}

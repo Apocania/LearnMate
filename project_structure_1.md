@@ -1,5 +1,7 @@
 # LearnMate Project Structure
 
+更新日期：2026-05-23
+
 本文档解释 LearnMate 当前项目结构、文件命名含义、文件作用和功能归属。文档按当前仓库实际代码编写，未跟踪的本地临时文件不纳入说明。
 
 ## 1. Overall Layout
@@ -124,7 +126,7 @@ apps/web/src/
 | `ForumPage.tsx` | `/forum` | 讨论交流列表。长帖自动折叠；展开全文、点赞、评论统一在右下角；评论区在帖子内展开；伴学师可管理帖子。 |
 | `ForumPostEditorPage.tsx` | `/forum/new` | 独立发帖页面。支持标题、Markdown 正文、实时预览和最多 5 个附件。 |
 | `FilesPage.tsx` | `/files` | 课件资料。游客浏览下载，伴学师上传和删除自己上传的文件。 |
-| `AssistantPage.tsx` | `/assistant` | AI 伴学聊天界面。登录用户可发送问题，后端当前返回占位回答。 |
+| `AssistantPage.tsx` | `/assistant` | AI 伴学聊天界面。登录用户可选择课程资料并发送问题，后端返回回答和引用来源。 |
 | `MessagesPage.tsx` | `/messages` | 消息中心。查看点赞、评论、私信、公告；伴学师发送私信和公告。 |
 | `LearningReportPage.tsx` | `/reports/me` | 个人中心/学习报告。展示课程、互动、估算投入、进度和建议。 |
 
@@ -191,18 +193,18 @@ FastAPI 应用入口。它创建应用、配置 CORS、注册静态文件和所�
 | File | Meaning | Role |
 |---|---|---|
 | `exceptions.py` | 通用异常 | 预留统一异常类型。 |
-| `pagination.py` | 分页结构 | 预留分页参数或响应结构。当前论坛和课程尚未真正分页。 |
+| `pagination.py` | 分页结构 | 预留通用分页参数或响应结构；论坛等模块已有各自分页实现。 |
 | `responses.py` | 通用响应 | 预留统一响应封装。 |
 
 ### 4.5 `app/infrastructure`
 
-基础设施适配层用于隔离外部服务。当前多数是预留或占位。
+基础设施适配层用于隔离外部服务。当前已经包含大模型、本地检索、对象存储和 Redis 连接边界。
 
 | File | Meaning | Role |
 |---|---|---|
-| `llm_client.py` | 大模型客户端 | 当前返回占位回答，后续接 OpenAI-compatible 或其他 LLM。 |
-| `vector_store.py` | 向量检索 | 当前搜索占位，后续接 pgvector 和 embedding 检索。 |
-| `object_storage.py` | 对象存储 | MinIO 接入预留。当前上传仍写本地磁盘。 |
+| `llm_client.py` | 大模型客户端 | 支持 OpenAI 兼容接口；未配置模型时返回本地检索式回答。 |
+| `vector_store.py` | 向量检索 | 使用本地哈希 embedding + 关键词混合检索；后续可升级 pgvector。 |
+| `object_storage.py` | 对象存储 | 封装本地/MinIO 课件存储；头像和论坛附件仍在各自服务中使用本地目录。 |
 | `redis.py` | Redis 连接 | Redis 基础设施预留。 |
 
 ### 4.6 Auth Module: `app/modules/auth`
@@ -279,30 +281,30 @@ FastAPI 应用入口。它创建应用、配置 CORS、注册静态文件和所�
 
 | File | Role |
 |---|---|
-| `models.py` | 定义 `file_assets` 表，保存原始名、存储名、MIME、大小、上传者。 |
+| `models.py` | 定义 `file_assets` 表，保存原始名、存储名、MIME、大小、课程/章节归属、上传者和存储信息。 |
 | `schemas.py` | 文件响应模型。 |
 | `repository.py` | 文件元数据 CRUD。 |
-| `service.py` | 上传大小/类型校验、本地保存、下载路径、删除权限。 |
+| `service.py` | 上传大小/类型校验、本地/MinIO 保存、下载路径、删除权限和知识库入库触发。 |
 | `api.py` | `/api/files`、上传、下载、删除。 |
 
-相关功能：课件资料页、游客下载、伴学师上传和删除自己上传的课件。
+相关功能：课件资料页、游客下载、伴学师上传和删除自己上传的课件、课程/章节资料绑定、AI 知识库切片。
 
 ### 4.12 Assistant Module: `app/modules/assistant`
 
-AI 伴学模块已经打通接口边界，但核心 AI 能力仍是占位。
+AI 伴学模块负责课程资料检索、Prompt 构造、大模型调用/本地兜底回答、引用来源和会话持久化。
 
 | File | Role |
 |---|---|
-| `models.py` | 定义 `assistant_sessions` 预留表。 |
+| `models.py` | 定义 `assistant_sessions`、`assistant_messages` 和 `knowledge_chunks` 表。 |
 | `schemas.py` | 提问请求、回答、引用来源响应模型。 |
 | `api.py` | `/api/assistant/messages`，要求登录用户。 |
 | `chat_service.py` | 编排检索、prompt 构建和 LLM 调用。 |
-| `retrieval_service.py` | 检索服务入口，当前调用占位向量库。 |
+| `retrieval_service.py` | 检索服务入口，按课程资料召回相关知识片段。 |
 | `prompt_builder.py` | 把问题和资料片段组装成 prompt。 |
-| `knowledge_ingestion.py` | 知识入库流程预留。 |
-| `repository.py` | 会话/消息持久化预留。 |
+| `knowledge_ingestion.py` | 上传课件后的文本抽取、切片和知识库入库流程。 |
+| `repository.py` | 会话、消息和知识库 chunk 持久化。 |
 
-相关功能：AI 伴学聊天页面、后端鉴权和占位回答。后续要接真实 LLM、embedding、pgvector 和引用来源。
+相关功能：AI 伴学聊天页面、课程选择、后端鉴权、资料检索、引用来源、本地检索式回答和 OpenAI 兼容大模型配置。后续要增强外部 embedding、pgvector 原生索引、流式输出、会话列表和安全限制。
 
 ### 4.13 Reports Module: `app/modules/reports`
 
@@ -320,14 +322,14 @@ AI 伴学模块已经打通接口边界，但核心 AI 能力仍是占位。
 
 ### 4.14 Learning Records Module: `app/modules/learning_records`
 
-学习记录模块是学习数据闭环的预留模块。
+学习记录模块记录学习数据闭环中的关键行为。
 
 | File | Role |
 |---|---|
 | `models.py` | 定义 `learning_events` 表。 |
-| `schemas.py` | 学习事件结构预留。 |
-| `repository.py` | 学习事件数据访问预留。 |
-| `service.py` | 学习事件业务逻辑预留。 |
+| `schemas.py` | 学习事件请求和响应结构。 |
+| `repository.py` | 学习事件数据访问。 |
+| `service.py` | 学习事件写入和查询逻辑。 |
 | `api.py` | 学习记录接口预留。 |
 
 当前课程、论坛、AI 行为还没有完整写入该模块。
@@ -453,17 +455,17 @@ AssistantPage.tsx
   -> POST /api/assistant/messages
   -> AssistantChatService.answer()
   -> RetrievalService.retrieve()
-  -> VectorStore.search() 占位
+  -> VectorStore.search()
   -> build_prompt()
-  -> LLMClient.chat() 占位
+  -> LLMClient.chat()
   -> 返回 answer 和 citations
 ```
 
 ## 10. Current Important Limitations
 
-- AI 伴学接口已打通，但真实大模型、embedding、pgvector 检索和引用来源仍未实现。
-- MinIO 已在配置和 Compose 中预留，但课件、头像和论坛附件当前仍写后端本地磁盘。
-- 数据库迁移尚未正式 Alembic 化，当前依赖 `create_all()` 和开发期补丁 SQL。
-- 课程尚无章节体系，课件没有绑定到具体课程。
-- 论坛尚无分页、搜索、课程筛选、编辑帖子、软删除、内容审核和举报。
-- 学习记录模块已有表和目录，但业务行为还没有完整写入学习事件。
+- AI 伴学已可演示，但外部 embedding、pgvector 原生索引、流式输出、前端会话列表、反馈和生产级安全限制仍需增强。
+- 课件资料支持本地或 MinIO 存储，但头像和论坛附件当前仍写后端本地磁盘。
+- 项目已提供 Alembic 初始迁移，开发环境仍保留 `create_all()` 和补丁 SQL；生产环境应逐步完全切换到 migration 流程。
+- 课程章节和课件绑定已实现，但章节完成度、任务、测验和伴学师学生概览仍可继续补充。
+- 论坛已有分页、搜索和课程筛选，但帖子编辑、软删除、内容审核和举报仍待增强。
+- 学习记录已覆盖多类行为，但课件下载、章节完成、在线预览时长和测验结果等更细粒度事件仍可继续补齐。

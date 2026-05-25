@@ -1,8 +1,10 @@
 # Database Design
 
+更新日期：2026-05-23
+
 本文档用于记录数据库表设计。
 
-当前后端仍主要通过 SQLAlchemy `create_all()` 初始化表结构，并在开发环境启动时执行少量补丁 SQL。项目已引入 Alembic，但正式迁移版本仍待补齐。启动初始化会导入 auth、courses、files、forum、assistant、learning_records、messages、reports 模型，确保当前模型表都会被纳入 `create_all()`。
+项目已提供首版 Alembic 迁移，用于把当前核心 schema 固化为可部署版本。开发环境启动时仍保留 SQLAlchemy `create_all()` 和少量兼容补丁 SQL，方便本地原型快速启动；生产环境建议以 Alembic 迁移为准，逐步减少启动期自动补丁。启动初始化会导入 auth、courses、files、forum、assistant、learning_records、messages、reports 模型，确保当前模型表都会被纳入开发环境建表流程。
 
 ## Current Tables
 

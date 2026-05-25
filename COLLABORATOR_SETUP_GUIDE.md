@@ -1,6 +1,10 @@
 # 仓库合作者新电脑部署指南
 
+更新日期：2026-05-23
+
 ## 1. 适用于一位新合作者在全新电脑、全新 VS Code 环境中，从零开始拉取并运行 LearnMate 项目。
+
+当前项目推荐先用 Docker 启动 PostgreSQL、Redis、MinIO，再分别启动后端 FastAPI 和前端 Vite。截图或演示前可以运行 `apps/api/scripts/seed_demo_data.py` 生成演示账号和内容。
 
 
 ## 2. 新电脑需要安装的软件
@@ -938,4 +942,3 @@ docker compose -f deploy/docker-compose.yml up -d --build web
 - Docker 只启动 PostgreSQL、Redis、MinIO 等基础服务。
 - 后端用 `uvicorn app.main:app --reload` 启动。
 - 前端用 `npm run dev:web` 启动。
-

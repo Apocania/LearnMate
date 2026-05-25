@@ -37,7 +37,7 @@ services:
       context: ../apps/api
     container_name: learnmate-api
     env_file:
-      - ../apps/api/.env
+      - ./.env
     depends_on:
       - postgres
       - redis

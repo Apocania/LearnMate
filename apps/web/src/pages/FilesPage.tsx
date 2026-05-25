@@ -6,16 +6,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Course, CourseChapter, listCourseChapters, listCourses } from "../api/courses";
 import { FileAsset, deleteFile, getFileDownloadUrl, listFiles, uploadFile } from "../api/files";
 import { PageHeader } from "../components/PageHeader";
+import { formatContentType, formatStorageProvider } from "../shared/utils/displayText";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 function formatFileSize(size: number) {
   if (size < 1024) {
-    return `${size} B`;
+    return `${size} 字节`;
   }
   if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / 1024).toFixed(1)} 千字节`;
   }
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  return `${(size / 1024 / 1024).toFixed(1)} 兆字节`;
 }
 
 export function FilesPage() {
@@ -84,7 +85,7 @@ export function FilesPage() {
     try {
       const uploaded = await uploadFile(file, { course_id: selectedCourseId, chapter_id: selectedChapterId });
       options.onSuccess?.(uploaded);
-      message.success("文件已上传并加入 AI 知识库");
+      message.success("文件已上传并加入智能知识库");
       await refreshFiles();
     } catch (error) {
       options.onError?.(error instanceof Error ? error : new Error("上传失败"));
@@ -104,7 +105,7 @@ export function FilesPage() {
 
   return (
     <>
-      <PageHeader title="文件资料" description="上传、浏览和下载课程相关资料，上传后会自动进入 AI 伴学知识库。" />
+      <PageHeader title="文件资料" description="上传、浏览和下载课程相关资料，上传后会自动进入智能伴学知识库。" />
       <Card>
         <Row gutter={[12, 12]}>
           <Col md={10} xs={24}>
@@ -146,7 +147,7 @@ export function FilesPage() {
               <InboxOutlined />
             </p>
             <p className="ant-upload-text">点击或拖拽文件到此处上传</p>
-            <p className="ant-upload-hint">支持 PDF、图片、文本和 Word 文档；文本类资料会自动切片供 AI 检索。</p>
+            <p className="ant-upload-hint">支持文档、图片和文本资料；文本类资料会自动切片供智能伴学检索。</p>
           </Upload.Dragger>
         </Card>
       ) : (
@@ -171,6 +172,7 @@ export function FilesPage() {
                 </Button>,
                 canUpload && currentUser?.id === file.uploader_id ? (
                   <Popconfirm
+                    cancelText="取消"
                     key="delete"
                     okText="删除"
                     onConfirm={() => void handleDelete(file)}
@@ -188,8 +190,8 @@ export function FilesPage() {
                   <Space wrap split={<span>·</span>}>
                     <Typography.Text type="secondary">{file.uploader_name}</Typography.Text>
                     <Typography.Text type="secondary">{formatFileSize(file.size)}</Typography.Text>
-                    <Typography.Text type="secondary">{file.content_type}</Typography.Text>
-                    <Tag>{file.storage_provider}</Tag>
+                    <Typography.Text type="secondary">{formatContentType(file.content_type)}</Typography.Text>
+                    <Tag>{formatStorageProvider(file.storage_provider)}</Tag>
                     {file.course_id ? <Tag color="blue">{courseTitleById.get(file.course_id) ?? `课程 #${file.course_id}`}</Tag> : null}
                     {file.chapter_id ? <Tag color="cyan">{chapterTitleById.get(file.chapter_id) ?? `章节 #${file.chapter_id}`}</Tag> : null}
                   </Space>

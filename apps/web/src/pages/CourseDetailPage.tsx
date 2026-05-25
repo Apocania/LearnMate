@@ -36,16 +36,20 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   Course,
   CourseChapter,
+  CourseEnrollment,
   createCourseChapter,
   deleteCourseChapter,
   enrollCourse,
   getCourse,
   leaveCourse,
   listCourseChapters,
+  listCourseEnrollments,
+  removeCourseEnrollment,
   updateCourseChapter
 } from "../api/courses";
 import { FileAsset, getFileDownloadUrl, listFiles, uploadFile } from "../api/files";
 import { PageHeader } from "../components/PageHeader";
+import { formatCourseStatus } from "../shared/utils/displayText";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 type ChapterFormValues = {
@@ -61,6 +65,7 @@ export function CourseDetailPage() {
   const [form] = Form.useForm<ChapterFormValues>();
   const [course, setCourse] = useState<Course | null>(null);
   const [chapters, setChapters] = useState<CourseChapter[]>([]);
+  const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [files, setFiles] = useState<FileAsset[]>([]);
   const [editingChapter, setEditingChapter] = useState<CourseChapter | null>(null);
   const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
@@ -89,6 +94,11 @@ export function CourseDetailPage() {
       setCourse(nextCourse);
       setChapters(nextChapters);
       setFiles(nextFiles);
+      if (currentUser?.role === "mentor" && currentUser.id === nextCourse.teacher_id) {
+        setEnrollments(await listCourseEnrollments(numericCourseId));
+      } else {
+        setEnrollments([]);
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : "课程加载失败");
       navigate("/courses");
@@ -108,6 +118,14 @@ export function CourseDetailPage() {
     ]);
     setChapters(nextChapters);
     setFiles(nextFiles);
+  }
+
+  async function refreshEnrollments() {
+    if (!isCourseOwner) {
+      setEnrollments([]);
+      return;
+    }
+    setEnrollments(await listCourseEnrollments(numericCourseId));
   }
 
   async function handleToggleEnrollment() {
@@ -176,6 +194,20 @@ export function CourseDetailPage() {
     }
   }
 
+  async function handleRemoveEnrollment(enrollment: CourseEnrollment) {
+    if (!course) {
+      return;
+    }
+    try {
+      await removeCourseEnrollment(course.id, enrollment.id);
+      message.success("学生已移出课程");
+      await refreshEnrollments();
+      setCourse({ ...course, enrollment_count: Math.max(0, course.enrollment_count - 1) });
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "移出学生失败");
+    }
+  }
+
   function createUploadRequest(chapterId: number | null): UploadProps["customRequest"] {
     return async (options) => {
       if (!course) {
@@ -237,9 +269,11 @@ export function CourseDetailPage() {
               <BookOutlined className="card-icon" />
               <Typography.Paragraph>{course.description}</Typography.Paragraph>
               <Space wrap>
-                <Tag color={course.status === "published" ? "green" : "default"}>
-                  {course.status === "published" ? "已发布" : "草稿"}
-                </Tag>
+                {isCourseOwner ? (
+                  <Tag color={course.status === "published" ? "green" : "default"}>
+                    {formatCourseStatus(course.status)}
+                  </Tag>
+                ) : null}
                 {course.joined_by_me ? <Tag color="blue">已加入</Tag> : null}
                 <Tag color="cyan">{course.enrollment_count} 人学习</Tag>
               </Space>
@@ -277,6 +311,7 @@ export function CourseDetailPage() {
                               编辑
                             </Button>
                             <Popconfirm
+                              cancelText="取消"
                               okText="删除"
                               onConfirm={() => void handleDeleteChapter(chapter)}
                               title="确认删除这个章节？"
@@ -328,7 +363,9 @@ export function CourseDetailPage() {
               <Descriptions.Item label="学习人数">{course.enrollment_count}</Descriptions.Item>
               <Descriptions.Item label="章节数量">{chapters.length}</Descriptions.Item>
               <Descriptions.Item label="课件数量">{files.length}</Descriptions.Item>
-              <Descriptions.Item label="课程状态">{course.status === "published" ? "已发布" : "草稿"}</Descriptions.Item>
+              {isCourseOwner ? (
+                <Descriptions.Item label="课程状态">{formatCourseStatus(course.status)}</Descriptions.Item>
+              ) : null}
             </Descriptions>
             {isStudent ? (
               <Button
@@ -343,11 +380,42 @@ export function CourseDetailPage() {
               </Button>
             ) : null}
           </Card>
+          {isCourseOwner ? (
+            <Card className="section-row" title="学生名单">
+              <List
+                dataSource={enrollments}
+                locale={{ emptyText: "暂无学生加入" }}
+                renderItem={(enrollment) => (
+                  <List.Item
+                    actions={[
+                      <Popconfirm
+                        cancelText="取消"
+                        key="remove"
+                        okText="移出"
+                        onConfirm={() => void handleRemoveEnrollment(enrollment)}
+                        title="确认将这名学生移出课程？"
+                      >
+                        <Button danger icon={<DeleteOutlined />} type="link">
+                          移出
+                        </Button>
+                      </Popconfirm>
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={enrollment.student_name}
+                      description={`加入时间：${new Date(enrollment.created_at).toLocaleString()}`}
+                    />
+                  </List.Item>
+                )}
+              />
+            </Card>
+          ) : null}
         </Col>
       </Row>
 
       <Modal
         destroyOnHidden
+        cancelText="取消"
         okText={editingChapter ? "保存修改" : "创建章节"}
         onCancel={() => setIsChapterModalOpen(false)}
         onOk={() => form.submit()}

@@ -9,6 +9,7 @@ from app.modules.courses.schemas import (
   CourseChapterResponse,
   CourseChapterUpdate,
   CourseCreate,
+  CourseEnrollmentResponse,
   CourseResponse,
   CourseUpdate,
 )
@@ -20,10 +21,14 @@ class CourseService:
     self.repository = CourseRepository(db)
 
   def list_courses(self, current_user: User | None = None) -> list[CourseResponse]:
-    return [self._build_course_response(course, current_user) for course in self.repository.list_courses()]
+    include_drafts = current_user is not None and current_user.role == "mentor"
+    current_user_id = current_user.id if current_user else None
+    courses = self.repository.list_courses(current_user_id=current_user_id, include_drafts=include_drafts)
+    return [self._build_course_response(course, current_user) for course in courses]
 
   def get_course(self, course_id: int, current_user: User | None = None) -> CourseResponse:
     course = self._get_course_or_404(course_id)
+    self._ensure_course_visible(course, current_user)
     return self._build_course_response(course, current_user)
 
   def _get_course_or_404(self, course_id: int) -> Course:
@@ -63,6 +68,7 @@ class CourseService:
   def enroll_course(self, course_id: int, current_user: User) -> CourseResponse:
     self._ensure_student(current_user)
     course = self._get_course_or_404(course_id)
+    self._ensure_course_visible(course, current_user)
     if self.repository.get_enrollment(course.id, current_user.id) is None:
       self.repository.enroll_course(course, current_user.id, current_user.username)
       LearningRecordService(self.repository.db).record_event(
@@ -76,6 +82,7 @@ class CourseService:
   def leave_course(self, course_id: int, current_user: User) -> CourseResponse:
     self._ensure_student(current_user)
     course = self._get_course_or_404(course_id)
+    self._ensure_course_visible(course, current_user)
     enrollment = self.repository.get_enrollment(course.id, current_user.id)
     if enrollment is not None:
       self.repository.leave_course(enrollment)
@@ -87,9 +94,24 @@ class CourseService:
       )
     return self._build_course_response(course, current_user)
 
-  def list_chapters(self, course_id: int) -> list[CourseChapterResponse]:
-    self._get_course_or_404(course_id)
+  def list_chapters(self, course_id: int, current_user: User | None = None) -> list[CourseChapterResponse]:
+    course = self._get_course_or_404(course_id)
+    self._ensure_course_visible(course, current_user)
     return [CourseChapterResponse.model_validate(chapter) for chapter in self.repository.list_chapters(course_id)]
+
+  def list_enrollments(self, course_id: int, current_user: User) -> list[CourseEnrollmentResponse]:
+    self._ensure_course_owner(course_id, current_user)
+    return [
+      CourseEnrollmentResponse.model_validate(enrollment)
+      for enrollment in self.repository.list_enrollments(course_id)
+    ]
+
+  def remove_enrollment(self, course_id: int, enrollment_id: int, current_user: User) -> None:
+    self._ensure_course_owner(course_id, current_user)
+    enrollment = self.repository.get_enrollment_by_id(enrollment_id)
+    if enrollment is None or enrollment.course_id != course_id:
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="学生选课记录不存在")
+    self.repository.leave_course(enrollment)
 
   def create_chapter(
     self,
@@ -135,6 +157,13 @@ class CourseService:
     if course.teacher_id != current_user.id:
       raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="只能管理自己创建的课程")
     return course
+
+  def _ensure_course_visible(self, course: Course, current_user: User | None = None) -> None:
+    if course.status == "published":
+      return
+    if current_user and current_user.role == "mentor" and course.teacher_id == current_user.id:
+      return
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="课程不存在")
 
   def _get_chapter_or_404(self, chapter_id: int, course_id: int) -> CourseChapter:
     chapter = self.repository.get_chapter(chapter_id)

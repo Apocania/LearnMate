@@ -6,6 +6,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.infrastructure.object_storage import ObjectStorageClient
 from app.modules.auth.models import User
 from app.modules.forum.models import ForumComment, ForumPost
 from app.modules.forum.repository import ForumRepository
@@ -18,7 +19,8 @@ from app.modules.forum.schemas import (
 from app.modules.messages.service import MessageService
 from app.modules.learning_records.service import LearningRecordService
 
-FORUM_ATTACHMENT_DIR = Path(__file__).resolve().parents[3] / "storage" / "forum-attachments"
+FORUM_ATTACHMENT_PREFIX = "forum-attachments"
+LEGACY_FORUM_ATTACHMENT_DIR = Path(__file__).resolve().parents[3] / "storage" / "forum-attachments"
 FORUM_ATTACHMENT_TYPES = settings.upload_allowed_types | {"image/webp", "text/markdown"}
 MAX_FORUM_ATTACHMENTS = 5
 
@@ -26,7 +28,7 @@ MAX_FORUM_ATTACHMENTS = 5
 class ForumService:
   def __init__(self, db: Session) -> None:
     self.repository = ForumRepository(db)
-    FORUM_ATTACHMENT_DIR.mkdir(parents=True, exist_ok=True)
+    self.storage = ObjectStorageClient()
 
   def list_posts(
     self,
@@ -48,10 +50,16 @@ class ForumService:
       course_id=course_id,
       keyword=keyword,
       status=status_filter,
+      current_user=current_user,
       offset=(page - 1) * page_size,
       limit=page_size,
     )
-    total = self.repository.count_posts(course_id=course_id, keyword=keyword, status=status_filter)
+    total = self.repository.count_posts(
+      course_id=course_id,
+      keyword=keyword,
+      status=status_filter,
+      current_user=current_user,
+    )
     avatar_urls = self.repository.get_user_avatar_urls({post.author_id for post in posts})
     course_titles = self.repository.get_course_titles({post.course_id for post in posts if post.course_id})
     from app.modules.forum.schemas import ForumPostPage
@@ -73,6 +81,7 @@ class ForumService:
     uploads: list[UploadFile] | None = None,
   ) -> ForumPostResponse:
     self._ensure_discussion_actor(current_user)
+    self._ensure_course_can_receive_post(payload.course_id, current_user)
     attachments = await self._store_attachments(uploads or [])
     post = self.repository.create_post(
       title=payload.title,
@@ -91,7 +100,7 @@ class ForumService:
     return self._build_post_response(post, current_user, current_user.avatar_url)
 
   def list_comments(self, post_id: int, current_user: User | None = None) -> list[ForumCommentResponse]:
-    self._get_post_or_404(post_id)
+    self._get_visible_post_or_404(post_id, current_user)
     comments = self.repository.list_comments(post_id)
     avatar_urls = self.repository.get_user_avatar_urls({comment.author_id for comment in comments})
     return [
@@ -101,7 +110,7 @@ class ForumService:
 
   def create_comment(self, post_id: int, content: str, current_user: User) -> ForumCommentResponse:
     self._ensure_discussion_actor(current_user)
-    post = self._get_post_or_404(post_id)
+    post = self._get_visible_post_or_404(post_id, current_user)
     comment = self.repository.create_comment(post_id, current_user.id, current_user.username, content)
     MessageService(self.repository.db).notify_post_commented(post, comment, current_user)
     LearningRecordService(self.repository.db).record_event(
@@ -114,7 +123,7 @@ class ForumService:
 
   def toggle_like(self, post_id: int, current_user: User) -> tuple[bool, int]:
     self._ensure_discussion_actor(current_user)
-    post = self._get_post_or_404(post_id)
+    post = self._get_visible_post_or_404(post_id, current_user)
     liked = self.repository.toggle_like(post_id, current_user.id)
     if liked:
       MessageService(self.repository.db).notify_post_liked(post, current_user)
@@ -136,20 +145,26 @@ class ForumService:
 
   def delete_post(self, post_id: int, current_user: User) -> None:
     self._ensure_mentor(current_user)
-    post = self._get_post_or_404(post_id)
+    post = self._get_visible_post_or_404(post_id, current_user)
     self.repository.delete_post(post)
 
   def update_post_status(self, post_id: int, next_status: str, current_user: User) -> ForumPostResponse:
     self._ensure_mentor(current_user)
     if next_status not in {"active", "hidden"}:
       raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="帖子状态无效")
-    post = self._get_post_or_404(post_id)
+    post = self._get_visible_post_or_404(post_id, current_user)
     updated_post = self.repository.update_post_status(post, next_status, current_user.id)
     return self._build_post_response(updated_post, current_user, None)
 
   def _get_post_or_404(self, post_id: int) -> ForumPost:
     post = self.repository.get_post(post_id)
     if post is None:
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="帖子不存在")
+    return post
+
+  def _get_visible_post_or_404(self, post_id: int, current_user: User | None = None) -> ForumPost:
+    post = self._get_post_or_404(post_id)
+    if not self._is_course_visible(post.course_id, current_user):
       raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="帖子不存在")
     return post
 
@@ -233,12 +248,13 @@ class ForumService:
 
       suffix = Path(original_name).suffix
       stored_name = f"{uuid4().hex}{suffix}"
-      target_path = FORUM_ATTACHMENT_DIR / stored_name
-      target_path.write_bytes(content)
+      stored_object = self.storage.put_object(f"{FORUM_ATTACHMENT_PREFIX}/{stored_name}", content, content_type)
       attachments.append(
         {
           "original_name": original_name,
           "stored_name": stored_name,
+          "storage_provider": stored_object.provider,
+          "object_key": stored_object.object_key,
           "content_type": content_type,
           "size": len(content),
           "url": f"/api/forum/attachments/{stored_name}/download",
@@ -267,10 +283,57 @@ class ForumService:
         continue
     return valid_attachments
 
-  def get_attachment_path(self, stored_name: str) -> Path:
+  def get_attachment(self, stored_name: str, current_user: User | None = None) -> tuple[bytes, str, str]:
     if "/" in stored_name or "\\" in stored_name:
       raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="附件路径无效")
-    path = FORUM_ATTACHMENT_DIR / stored_name
-    if not path.exists():
+    post = self.repository.find_post_by_attachment(stored_name)
+    if post and not self._is_course_visible(post.course_id, current_user):
       raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="附件不存在")
-    return path
+    attachment = self._find_attachment_metadata(post, stored_name) if post else None
+    object_key = (
+      str(attachment.get("object_key"))
+      if attachment and attachment.get("object_key")
+      else f"{FORUM_ATTACHMENT_PREFIX}/{stored_name}"
+    )
+    storage_provider = str(attachment.get("storage_provider")) if attachment else None
+    content_type = str(attachment.get("content_type")) if attachment else "application/octet-stream"
+    original_name = str(attachment.get("original_name")) if attachment else stored_name
+    if storage_provider is None:
+      legacy_path = LEGACY_FORUM_ATTACHMENT_DIR / stored_name
+      if legacy_path.exists():
+        return legacy_path.read_bytes(), content_type, original_name
+    return self.storage.read_object(object_key, storage_provider), content_type, original_name
+
+  def _ensure_course_can_receive_post(self, course_id: int | None, current_user: User) -> None:
+    if course_id is None:
+      return
+    course = self.repository.get_course(course_id)
+    if course is None:
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="课程不存在")
+    if course.status == "published":
+      return
+    if current_user.role == "mentor" and course.teacher_id == current_user.id:
+      return
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="课程不存在")
+
+  def _is_course_visible(self, course_id: int | None, current_user: User | None) -> bool:
+    if course_id is None:
+      return True
+    course = self.repository.get_course(course_id)
+    if course is None:
+      return False
+    if course.status == "published":
+      return True
+    return bool(current_user and current_user.role == "mentor" and course.teacher_id == current_user.id)
+
+  def _find_attachment_metadata(self, post: ForumPost, stored_name: str) -> dict[str, str | int] | None:
+    try:
+      attachments = json.loads(post.attachments or "[]")
+    except json.JSONDecodeError:
+      return None
+    if not isinstance(attachments, list):
+      return None
+    for attachment in attachments:
+      if isinstance(attachment, dict) and attachment.get("stored_name") == stored_name:
+        return attachment
+    return None

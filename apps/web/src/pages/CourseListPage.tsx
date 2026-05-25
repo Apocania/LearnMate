@@ -7,12 +7,13 @@ import {
   TeamOutlined,
   UserAddOutlined
 } from "@ant-design/icons";
-import { Alert, Button, Card, Col, Form, Input, Modal, Popconfirm, Row, Select, Space, Tag, Typography, message } from "antd";
+import { Button, Card, Col, Form, Input, Modal, Popconfirm, Row, Select, Space, Tag, Typography, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Course, createCourse, deleteCourse, enrollCourse, leaveCourse, listCourses, updateCourse } from "../api/courses";
+import { Course, deleteCourse, enrollCourse, leaveCourse, listCourses, updateCourse } from "../api/courses";
 import { PageHeader } from "../components/PageHeader";
+import { formatCourseStatus } from "../shared/utils/displayText";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 type CourseFormValues = {
@@ -60,12 +61,6 @@ export function CourseListPage() {
     );
   }, [courses, keyword]);
 
-  function openCreateModal() {
-    setEditingCourse(null);
-    form.setFieldsValue({ title: "", description: "", status: "published" });
-    setIsModalOpen(true);
-  }
-
   function openEditModal(course: Course) {
     setEditingCourse(course);
     form.setFieldsValue({
@@ -77,14 +72,12 @@ export function CourseListPage() {
   }
 
   async function handleSubmit(values: CourseFormValues) {
+    if (!editingCourse) {
+      return;
+    }
     try {
-      if (editingCourse) {
-        await updateCourse(editingCourse.id, values);
-        message.success("课程已更新");
-      } else {
-        await createCourse(values);
-        message.success("课程已创建");
-      }
+      await updateCourse(editingCourse.id, values);
+      message.success("课程已更新");
       setIsModalOpen(false);
       await refreshCourses();
     } catch (error) {
@@ -125,23 +118,6 @@ export function CourseListPage() {
   return (
     <>
       <PageHeader title="课程中心" description="浏览课程、查看详情并完成选课。" />
-      {!currentUser ? (
-        <Alert
-          className="section-row"
-          message="当前为游客浏览模式"
-          description="你可以浏览课程内容；登录学生身份后可以加入或退出课程，登录伴学师身份后可以创建和编辑课程。"
-          showIcon
-          type="info"
-        />
-      ) : isStudent ? (
-        <Alert
-          className="section-row"
-          message="学生模式"
-          description="你可以加入或退出课程。课程创建、编辑和删除仅伴学师可用。"
-          showIcon
-          type="success"
-        />
-      ) : null}
       <Card className="toolbar-card">
         <Space wrap>
           <Input.Search
@@ -152,7 +128,7 @@ export function CourseListPage() {
             value={keyword}
           />
           {isMentor ? (
-            <Button icon={<PlusOutlined />} onClick={openCreateModal} type="primary">
+            <Button icon={<PlusOutlined />} onClick={() => navigate("/courses/new")} type="primary">
               创建课程
             </Button>
           ) : null}
@@ -180,6 +156,7 @@ export function CourseListPage() {
                 ) : null,
                 isMentor && currentUser?.id === course.teacher_id ? (
                   <Popconfirm
+                    cancelText="取消"
                     key="delete"
                     okText="删除"
                     onConfirm={() => void handleDelete(course.id)}
@@ -199,7 +176,11 @@ export function CourseListPage() {
                 <Typography.Title level={4}>{course.title}</Typography.Title>
                 <Typography.Text type="secondary">{course.description}</Typography.Text>
                 <Space wrap>
-                  <Tag color={course.status === "published" ? "green" : "default"}>{course.status}</Tag>
+                  {isMentor ? (
+                    <Tag color={course.status === "published" ? "green" : "default"}>
+                      {formatCourseStatus(course.status)}
+                    </Tag>
+                  ) : null}
                   {course.joined_by_me ? <Tag color="blue">已加入</Tag> : null}
                   <Tag color="cyan">{course.enrollment_count} 人学习</Tag>
                 </Space>
@@ -216,14 +197,16 @@ export function CourseListPage() {
       </Row>
 
       <Modal
+        className="course-edit-modal"
         destroyOnHidden
-        okText={editingCourse ? "保存修改" : "创建课程"}
+        cancelText="取消"
+        okText="保存修改"
         onCancel={() => setIsModalOpen(false)}
         onOk={() => form.submit()}
         open={isModalOpen}
-        title={editingCourse ? "编辑课程" : "创建课程"}
+        title="编辑课程"
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <Form className="course-form polished-form" form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item label="课程名称" name="title" rules={[{ required: true, message: "请输入课程名称" }]}>
             <Input placeholder="例如：机器学习基础" />
           </Form.Item>

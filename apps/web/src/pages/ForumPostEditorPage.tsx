@@ -64,7 +64,7 @@ export function ForumPostEditorPage() {
 
   return (
     <>
-      <PageHeader title="发布帖子" description="用 Markdown 写清楚问题、想法和附件材料。" />
+      <PageHeader title="发布帖子" description="用结构化文本写清楚问题、想法和附件材料。" />
       {!currentUser ? (
         <Alert className="section-row" message="请先登录后发布帖子" showIcon type="info" />
       ) : null}
@@ -92,11 +92,11 @@ export function ForumPostEditorPage() {
             </Form.Item>
 
             <div className="post-editor-grid">
-              <Form.Item label="正文 Markdown" name="content" rules={[{ required: true, message: "请输入正文" }]}>
+              <Form.Item label="正文内容" name="content" rules={[{ required: true, message: "请输入正文" }]}>
                 <Input.TextArea
                   className="markdown-editor"
                   onChange={(event) => setContent(event.target.value)}
-                  placeholder="使用 Markdown 写下问题背景、尝试过程和想请大家帮忙的点"
+                  placeholder="写下问题背景、尝试过程和想请大家帮忙的点"
                   value={content}
                 />
               </Form.Item>

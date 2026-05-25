@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_current_user, require_roles
+from app.modules.auth.dependencies import get_current_user, get_optional_current_user, require_roles
 from app.modules.auth.models import User
 from app.modules.files.schemas import FileAssetResponse
 from app.modules.files.service import FileService
@@ -18,8 +18,9 @@ def list_files(
   course_id: int | None = None,
   chapter_id: int | None = None,
   db: Session = Depends(get_db),
+  current_user: User | None = Depends(get_optional_current_user),
 ) -> list[FileAssetResponse]:
-  return FileService(db).list_files(course_id, chapter_id)
+  return FileService(db).list_files(course_id, chapter_id, current_user)
 
 
 @router.post("/upload", response_model=FileAssetResponse, status_code=status.HTTP_201_CREATED)
@@ -35,17 +36,21 @@ async def upload_file(
 
 
 @router.get("/{file_id}/download")
-def download_file(file_id: int, db: Session = Depends(get_db)) -> FileResponse:
+def download_file(
+  file_id: int,
+  db: Session = Depends(get_db),
+  current_user: User | None = Depends(get_optional_current_user),
+) -> FileResponse:
   service = FileService(db)
-  file_asset = service.get_file(file_id)
+  file_asset = service.get_file(file_id, current_user)
   if file_asset.storage_provider == "local":
-    _, path = service.get_file_path(file_id)
+    _, path = service.get_file_path(file_id, current_user)
     return FileResponse(
       path,
       media_type=file_asset.content_type,
       filename=quote(file_asset.original_name),
     )
-  _, data = service.get_file_bytes(file_id)
+  _, data = service.get_file_bytes(file_id, current_user)
   return Response(
     content=data,
     media_type=file_asset.content_type,

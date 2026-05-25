@@ -9,6 +9,7 @@ from app.modules.courses.schemas import (
   CourseChapterResponse,
   CourseChapterUpdate,
   CourseCreate,
+  CourseEnrollmentResponse,
   CourseResponse,
   CourseUpdate,
 )
@@ -82,8 +83,32 @@ def leave_course(
 
 
 @router.get("/{course_id}/chapters", response_model=list[CourseChapterResponse])
-def list_course_chapters(course_id: int, db: Session = Depends(get_db)) -> list[CourseChapterResponse]:
-  return CourseService(db).list_chapters(course_id)
+def list_course_chapters(
+  course_id: int,
+  db: Session = Depends(get_db),
+  current_user: User | None = Depends(get_optional_current_user),
+) -> list[CourseChapterResponse]:
+  return CourseService(db).list_chapters(course_id, current_user)
+
+
+@router.get("/{course_id}/enrollments", response_model=list[CourseEnrollmentResponse])
+def list_course_enrollments(
+  course_id: int,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> list[CourseEnrollmentResponse]:
+  return CourseService(db).list_enrollments(course_id, current_user)
+
+
+@router.delete("/{course_id}/enrollments/{enrollment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_course_enrollment(
+  course_id: int,
+  enrollment_id: int,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(get_current_user),
+) -> Response:
+  CourseService(db).remove_enrollment(course_id, enrollment_id, current_user)
+  return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{course_id}/chapters", response_model=CourseChapterResponse, status_code=status.HTTP_201_CREATED)

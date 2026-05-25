@@ -51,7 +51,7 @@ export function LoginPage() {
     <main className="auth-page">
       <Card className="auth-card">
         <Space className="auth-heading" direction="vertical" size={6}>
-          <div className="auth-logo">L</div>
+          <div className="auth-logo">学</div>
           <Typography.Title level={2}>LearnMate</Typography.Title>
           <Typography.Text type="secondary">登录或注册后进入智能学习伙伴平台</Typography.Text>
         </Space>

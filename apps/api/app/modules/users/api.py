@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, status
+from fastapi import APIRouter, Depends, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -13,6 +13,12 @@ router = APIRouter()
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)) -> User:
   return current_user
+
+
+@router.get("/avatars/{stored_name}")
+def get_avatar(stored_name: str, db: Session = Depends(get_db)) -> Response:
+  data, content_type = UserService(db).get_avatar(stored_name)
+  return Response(content=data, media_type=content_type)
 
 
 @router.post("/me/avatar", response_model=UserResponse, status_code=status.HTTP_200_OK)

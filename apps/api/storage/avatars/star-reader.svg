@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Star reader avatar">
+  <rect width="96" height="96" rx="24" fill="#a78bfa"/>
+  <path d="M48 12l8 18 19 2-14 12 4 19-17-10-17 10 4-19-14-12 19-2 8-18z" fill="#ffbd4a"/>
+  <circle cx="48" cy="48" r="19" fill="#ffd8a8"/>
+  <circle cx="42" cy="47" r="3" fill="#25405d"/>
+  <circle cx="55" cy="47" r="3" fill="#25405d"/>
+  <path d="M40 58c5 4 11 4 16 0" fill="none" stroke="#25405d" stroke-width="4" stroke-linecap="round"/>
+  <path d="M19 71h58v8H19z" fill="#fff9ed"/>
+  <path d="M23 63h50v8H23z" fill="#35c7b5"/>
+</svg>

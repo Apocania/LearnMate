@@ -1,5 +1,7 @@
 # AI Assistant Design
 
+更新日期：2026-05-23
+
 本文档用于记录 AI 助教模块设计。
 
 AI 伴学第一版目标是轻量 RAG 闭环：
@@ -27,7 +29,7 @@ AI 伴学第一版目标是轻量 RAG 闭环：
 
 - 本地 embedding 检索可升级为 pgvector 原生索引和外部 embedding 模型。
 - PDF 解析依赖 `pypdf`；图片 OCR 尚未接入。
-- 流式输出、用户反馈和多轮上下文精细控制仍可继续完善。
+- 输入限流、回答长度控制、内容安全边界、流式输出、用户反馈和多轮上下文精细控制仍可继续完善。
 
 ## Runtime Flow
 
@@ -46,9 +48,9 @@ AssistantPage.tsx
 
 ## Next Steps
 
-1. 为 `knowledge_chunks` 增加 embedding 字段和 pgvector 索引。
-2. 上传课件时生成 embedding。
-3. 提问时按 `course_id` 和相似度检索相关资料。
-4. 增加 SSE 流式输出。
-5. 增加回答点赞/点踩反馈。
-6. 增加会话列表和历史消息查询接口。
+1. 增加输入 schema 限制、单用户频率限制、模型 `max_tokens` 上限、拒答边界和输出安全检查。
+2. 将本地哈希 embedding 升级为外部 embedding 模型，并使用 pgvector 原生向量列和索引。
+3. 增加 SSE 流式输出，让长回答在前端逐步呈现。
+4. 增加会话列表、历史消息查询接口和多轮上下文 token 预算控制。
+5. 增加回答点赞/点踩反馈、人工复核标记和评测样例集。
+6. 增加图片/PDF 扫描件 OCR，把更多课件内容纳入知识库。

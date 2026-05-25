@@ -72,7 +72,7 @@ export function LearningReportPage() {
         </Col>
         <Col lg={6} md={12} xs={24}>
           <Card>
-            <Statistic title="AI 问答/资料" value={`${report?.ai_question_count ?? 0}/${report?.uploaded_file_count ?? 0}`} suffix="次/份" />
+            <Statistic title="智能问答/资料" value={`${report?.ai_question_count ?? 0}/${report?.uploaded_file_count ?? 0}`} suffix="次/份" />
           </Card>
         </Col>
       </Row>

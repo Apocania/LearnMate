@@ -17,10 +17,11 @@ class ForumRepository:
     course_id: int | None = None,
     keyword: str | None = None,
     status: str | None = "active",
+    current_user: User | None = None,
     offset: int = 0,
     limit: int = 20,
   ) -> list[ForumPost]:
-    statement = self._build_post_query(course_id, keyword, status)
+    statement = self._build_post_query(course_id, keyword, status, current_user)
     return list(self.db.scalars(statement.order_by(ForumPost.id.desc()).offset(offset).limit(limit)).all())
 
   def count_posts(
@@ -28,12 +29,27 @@ class ForumRepository:
     course_id: int | None = None,
     keyword: str | None = None,
     status: str | None = "active",
+    current_user: User | None = None,
   ) -> int:
-    query = self._build_post_query(course_id, keyword, status).subquery()
+    query = self._build_post_query(course_id, keyword, status, current_user).subquery()
     return self.db.scalar(select(func.count()).select_from(query)) or 0
 
-  def _build_post_query(self, course_id: int | None, keyword: str | None, status: str | None):
+  def _build_post_query(
+    self,
+    course_id: int | None,
+    keyword: str | None,
+    status: str | None,
+    current_user: User | None,
+  ):
     statement = select(ForumPost)
+    if current_user and current_user.role == "mentor":
+      statement = statement.outerjoin(Course, Course.id == ForumPost.course_id).where(
+        (ForumPost.course_id.is_(None)) | (Course.status == "published") | (Course.teacher_id == current_user.id)
+      )
+    else:
+      statement = statement.outerjoin(Course, Course.id == ForumPost.course_id).where(
+        (ForumPost.course_id.is_(None)) | (Course.status == "published")
+      )
     if course_id is not None:
       statement = statement.where(ForumPost.course_id == course_id)
     if status and status != "all":
@@ -46,6 +62,9 @@ class ForumRepository:
 
   def get_post(self, post_id: int) -> ForumPost | None:
     return self.db.get(ForumPost, post_id)
+
+  def find_post_by_attachment(self, stored_name: str) -> ForumPost | None:
+    return self.db.scalar(select(ForumPost).where(ForumPost.attachments.contains(stored_name)))
 
   def get_comment(self, comment_id: int) -> ForumComment | None:
     return self.db.get(ForumComment, comment_id)
@@ -61,6 +80,9 @@ class ForumRepository:
       return {}
     rows = self.db.execute(select(Course.id, Course.title).where(Course.id.in_(course_ids))).all()
     return {course_id: title for course_id, title in rows}
+
+  def get_course(self, course_id: int) -> Course | None:
+    return self.db.get(Course, course_id)
 
   def create_post(
     self,

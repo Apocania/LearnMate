@@ -13,9 +13,9 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 
 const learningTasks = [
-  "完成《机器学习基础》第 2 章课件阅读",
-  "查看 AI 助教整理的梯度下降问答",
-  "回复课程论坛中的小组讨论帖"
+  "完成《星际数学探险》的分数任务卡",
+  "在《瓶中彩虹》讨论里写下你的观察",
+  "向智能伴学提问：为什么 3/4 比 2/3 大？"
 ];
 
 const moduleCards = [
@@ -35,7 +35,7 @@ const moduleCards = [
   },
   {
     icon: <RobotOutlined />,
-    title: "AI伴学",
+    title: "智能伴学",
     description: "结合课程资料检索来源，辅助答疑和复习。",
     path: "/assistant",
     tone: "assistant"
@@ -55,24 +55,27 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader
-        eyebrow="智能教学协作空间"
+        eyebrow="小小探索家学习站"
         title="欢迎来到 LearnMate"
-        description="以课程为中心，以互动为纽带，以 AI 伴学为辅助，以数据反馈为支撑。"
+        description="课程、讨论、智能答疑和成长记录一起陪伴孩子主动探索。"
       />
 
       <section className="home-command">
         <div className="home-command-copy">
+          <span aria-hidden className="home-decoration home-decoration-sun" />
+          <span aria-hidden className="home-decoration home-decoration-cloud" />
+          <span aria-hidden className="home-decoration home-decoration-planet" />
           <Typography.Text className="home-kicker">今日学习工作台</Typography.Text>
-          <Typography.Title level={2}>课程、讨论、AI 与成长记录在这里汇合。</Typography.Title>
+          <Typography.Title level={2}>今天也一起把知识小星球点亮。</Typography.Title>
           <Typography.Paragraph>
-            面向学生和伴学师的轻量化学习协作空间，让课程资料、交流答疑和学习反馈保持同一个节奏。
+            面向学生和伴学师的轻量化学习协作空间，让每一次阅读、提问、讨论和反馈都变成清楚可见的成长足迹。
           </Typography.Paragraph>
           <Space wrap>
             <Button icon={<BookOutlined />} onClick={() => navigate("/courses")} type="primary">
               进入课程中心
             </Button>
             <Button icon={<RobotOutlined />} onClick={() => navigate("/assistant")}>
-              打开 AI 伴学
+              打开智能伴学
             </Button>
           </Space>
         </div>
@@ -92,7 +95,7 @@ export function DashboardPage() {
               <RobotOutlined />
             </span>
             <span>
-              <Typography.Text strong>AI 伴学</Typography.Text>
+              <Typography.Text strong>智能伴学</Typography.Text>
               <Typography.Text type="secondary">可结合课程引用回答</Typography.Text>
             </span>
             <Tag color="blue">就绪</Tag>
@@ -130,7 +133,7 @@ export function DashboardPage() {
         </Col>
         <Col lg={6} sm={12} xs={24}>
           <Card className="metric-card">
-            <Statistic prefix={<RobotOutlined />} title="本周 AI 问答" value={18} suffix="次" />
+            <Statistic prefix={<RobotOutlined />} title="本周智能问答" value={18} suffix="次" />
           </Card>
         </Col>
         <Col lg={6} sm={12} xs={24}>
@@ -151,21 +154,21 @@ export function DashboardPage() {
             <Space className="progress-list" direction="vertical" size="large">
               <div>
                 <div className="progress-title">
-                  <Typography.Text strong>机器学习基础</Typography.Text>
+                  <Typography.Text strong>星际数学探险</Typography.Text>
                   <Tag color="blue">进行中</Tag>
                 </div>
                 <Progress percent={72} />
               </div>
               <div>
                 <div className="progress-title">
-                  <Typography.Text strong>教育数据分析</Typography.Text>
+                  <Typography.Text strong>奇妙科学实验室</Typography.Text>
                   <Tag color="green">良好</Tag>
                 </div>
                 <Progress percent={56} />
               </div>
               <div>
                 <div className="progress-title">
-                  <Typography.Text strong>Python 编程实践</Typography.Text>
+                  <Typography.Text strong>编程创意课</Typography.Text>
                   <Tag color="orange">待复习</Tag>
                 </div>
                 <Progress percent={41} />

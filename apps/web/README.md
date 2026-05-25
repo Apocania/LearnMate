@@ -1,5 +1,7 @@
 # LearnMate Web
 
+更新日期：2026-05-23
+
 LearnMate 的 React + TypeScript + Vite 前端应用。
 
 ## Development
@@ -23,6 +25,8 @@ npm run build
 ```
 
 当前路由页面使用 `React.lazy` 和 `Suspense` 懒加载，构建后会按页面拆分 chunk。
+
+当前界面已经调整为面向儿童学习场景的明亮风格，包含彩色背景、活泼卡片、顶部品牌动效、AI 伴学示例对话和适合截图展示的首页内容。
 
 ## Main Pages
 

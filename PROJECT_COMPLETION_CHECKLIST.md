@@ -1,7 +1,7 @@
 # LearnMate Completion Checklist
 
-整理日期：2026-05-15  
-项目阶段：可演示的早期原型，核心教学业务链路已经打通，但距离生产级系统仍有明显缺口。
+整理日期：2026-05-23
+项目阶段：可演示的进阶原型，课程、互动、资料、AI 检索问答、学习记录和儿童化展示 UI 已经形成闭环；距离生产级系统仍需要安全、测试、部署和智能能力增强。
 
 本文档用于回答三个问题：
 
@@ -17,10 +17,10 @@
 | 后端应用 | 已完成核心 API | FastAPI + SQLAlchemy 后端已实现认证、课程、论坛、文件、消息、报告和 AI 问答接口边界。 |
 | 课程业务 | 基本完成 | 游客浏览、伴学师建课/改课/删课、学生加入/退出课程已实现。 |
 | 论坛业务 | 基本完成 | Markdown 发帖、附件、长帖折叠、评论、点赞、评论删除、伴学师管理、消息提醒已实现。 |
-| 文件业务 | 基本完成 | 课件上传、列表、下载、删除和文件类型/大小限制已实现，但仍是本地存储。 |
+| 文件业务 | 基本完成 | 课件上传、列表、下载、删除、课程/章节绑定、知识库切片和本地/MinIO 课件存储已实现；头像和论坛附件仍以本地目录为主。 |
 | 消息业务 | 基本完成 | 点赞提醒、评论提醒、私信、公告、未读数和已读状态已实现。 |
-| AI 伴学 | 接口打通，智能能力未完成 | 前后端链路存在，但向量检索和大模型调用仍是占位。 |
-| 学习报告 | 轻量完成 | 已基于课程和论坛数据生成统计，但缺真实学习事件闭环。 |
+| AI 伴学 | 基本完成可演示 | 已支持课程资料检索、引用来源、会话落库、本地检索式回答和 OpenAI 兼容大模型配置；流式输出、安全限制和 pgvector 原生索引仍需增强。 |
+| 学习报告 | 基本完成可演示 | 已基于课程、论坛、AI 问答和学习事件生成统计、轨迹和建议；更精细的课程进度仍可继续完善。 |
 | 部署 | 可本地 Docker 演示 | Docker Compose 可启动 PostgreSQL、Redis、MinIO、API、Web，但生产化不足。 |
 | 测试 | 基础完成 | 有少量后端测试；前端、端到端和核心权限测试仍不足。 |
 
@@ -278,6 +278,9 @@
 - 所有用户可下载课件。
 - 后端校验文件大小和 MIME 类型。
 - 文件名使用 UUID 存储，避免重名覆盖。
+- 课件可绑定课程和章节。
+- 课件可使用本地存储或 MinIO 存储。
+- 文本类、Markdown、DOCX 和 PDF 课件会抽取文本并写入知识库 chunk。
 
 实现位置：
 
@@ -291,6 +294,8 @@
 | 前端文件 API | `apps/web/src/api/files.ts` |
 | 前端文件页面 | `apps/web/src/pages/FilesPage.tsx` |
 | 上传限制配置 | `apps/api/app/core/config.py` |
+| 对象存储适配 | `apps/api/app/infrastructure/object_storage.py` |
+| 知识库入库 | `apps/api/app/modules/assistant/knowledge_ingestion.py` |
 
 验收方式：
 
@@ -299,17 +304,23 @@
 - 伴学师能上传课件。
 - 上传不支持类型或超大文件会失败。
 
-### 2.9 AI 伴学页面和接口边界
+### 2.9 AI 伴学页面和接口
 
-状态：部分完成。
+状态：基本完成可演示。
 
 已实现内容：
 
 - 前端有 AI 伴学聊天页面。
-- 登录用户可发送问题。
+- 登录用户可选择课程资料并发送问题。
 - 游客看到登录提示。
 - 后端有 `/api/assistant/messages` 接口。
 - 后端已经拆出检索、Prompt、LLM 客户端等边界。
+- 课件上传后会抽取文本、切片并写入 `knowledge_chunks`。
+- 检索层支持本地哈希 embedding 余弦相似度 + 关键词混合检索。
+- 回答会返回引用来源 `citations`。
+- 配置 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 后可调用 OpenAI 兼容大模型。
+- 未配置外部模型时使用本地检索式回答，适合课堂演示和离线展示。
+- AI 问答会写入会话、消息和学习事件。
 
 实现位置：
 
@@ -321,16 +332,17 @@
 | 对话编排服务 | `apps/api/app/modules/assistant/chat_service.py` |
 | 检索服务 | `apps/api/app/modules/assistant/retrieval_service.py` |
 | Prompt 构造 | `apps/api/app/modules/assistant/prompt_builder.py` |
-| 向量库占位 | `apps/api/app/infrastructure/vector_store.py` |
-| LLM 客户端占位 | `apps/api/app/infrastructure/llm_client.py` |
+| 轻量向量检索 | `apps/api/app/infrastructure/vector_store.py` |
+| LLM 客户端 | `apps/api/app/infrastructure/llm_client.py` |
+| 知识库入库 | `apps/api/app/modules/assistant/knowledge_ingestion.py` |
 
 当前限制：
 
-- 没有真实大模型回答。
-- 没有真实课程资料检索。
-- 没有引用来源。
 - 没有流式输出。
-- 没有对话历史落库。
+- 没有前端会话列表和历史消息管理。
+- 未接外部 embedding 模型和 pgvector 原生向量索引。
+- 未接图片 OCR。
+- 生产环境还需要输入长度限制、频率限制、输出安全检查和审计。
 
 ### 2.10 个人中心和学习报告
 
@@ -340,7 +352,7 @@
 
 - 登录用户可访问个人中心/学习报告。
 - 后端返回课程数量、讨论互动、估算学习投入、进度、学习轨迹和建议。
-- 统计当前主要基于课程和论坛数据。
+- 统计当前基于课程、论坛、AI 问答、资料上传和学习事件。
 
 实现位置：
 
@@ -398,6 +410,8 @@
 - 有头像上传相关测试。
 - 有消息接口相关测试。
 - 有个人报告接口测试。
+- 有 AI 伴学接口鉴权、会话和引用结构测试。
+- 有课程章节和学习事件测试。
 
 实现位置：
 
@@ -408,6 +422,9 @@
 | 头像测试 | `apps/api/tests/test_users_avatar.py` |
 | 消息测试 | `apps/api/tests/test_messages.py` |
 | 报告测试 | `apps/api/tests/test_reports.py` |
+| AI 测试 | `apps/api/tests/test_assistant.py` |
+| 章节测试 | `apps/api/tests/test_course_chapters.py` |
+| 学习事件测试 | `apps/api/tests/test_learning_records.py` |
 
 验收方式：
 
@@ -417,22 +434,24 @@ APP_ENV=test apps/api/.venv/bin/python -m pytest apps/api/tests
 
 ## 3. 待完成清单
 
-### 3.1 接入真实 AI 大模型
+### 3.1 增强真实 AI 大模型接入和使用限制
 
 优先级：高。
 
 当前问题：
 
-- `LLMClient.chat()` 仍是占位实现。
-- 用户看到的是模板化回答，不是真实 AI 推理结果。
+- `LLMClient.chat()` 已支持 OpenAI 兼容接口和本地检索式兜底，但生产级限制还不完整。
+- 目前缺少更严格的输入长度限制、单用户频率限制、模型输出 token 上限和内容安全边界。
+- 模型失败、超时、供应商限流等场景还可以继续细化用户提示和降级策略。
 
 应该如何完成：
 
-1. 在 `apps/api/app/infrastructure/llm_client.py` 中实现真实 OpenAI-compatible 调用。
-2. 在 `apps/api/app/core/config.py` 中完善 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 配置校验。
-3. 在 `apps/api/app/modules/assistant/chat_service.py` 中处理模型异常、超时和空回答。
-4. 前端 `AssistantPage.tsx` 增加加载状态、失败重试和错误提示。
-5. 为 `assistant` 模块增加后端测试，覆盖未登录、空问题、模型失败和成功回答。
+1. 在 `apps/api/app/modules/assistant/api.py` 和 `schemas.py` 中收紧输入长度、空白内容和课程权限校验。
+2. 在 `apps/api/app/infrastructure/llm_client.py` 中完善 timeout、重试、错误分类和响应长度控制。
+3. 在 `apps/api/app/core/config.py` 中增加模型请求上限、默认 `max_tokens`、温度和供应商配置说明。
+4. 增加基于 Redis 或数据库的 AI 请求频率限制。
+5. 增加拒答边界、敏感信息脱敏、日志审计和异常降级策略。
+6. 为模型成功、失败、超时、限流和本地兜底补充测试。
 
 建议涉及文件：
 
@@ -448,30 +467,31 @@ apps/api/tests/
 验收标准：
 
 - 配置真实 API Key 后，AI 伴学能返回真实模型回答。
-- 模型服务不可用时，前端显示友好错误。
+- 模型服务不可用时，系统能稳定降级或显示友好错误。
 - 后端不会把 API Key 输出到日志或响应中。
+- 短时间高频请求会被限制。
+- 单次请求和回答长度都在可控范围内。
 
-### 3.2 完成 RAG 知识库检索
+### 3.2 升级 RAG 知识库检索
 
 优先级：高。
 
 当前问题：
 
-- `VectorStore.search()` 是占位。
-- 上传课件后没有解析、切片、embedding 和入库。
-- AI 回答没有真实引用来源。
+- 目前已有课件解析、切片、`knowledge_chunks` 入库、轻量 embedding 和引用来源。
+- 当前 embedding 为本地哈希向量，适合演示，但语义理解能力有限。
+- PostgreSQL 中的 `embedding` 当前以 JSON 形式保存，还没有使用 pgvector 原生向量列和索引。
+- 图片 OCR、扫描版 PDF 和更复杂的版面解析尚未接入。
 
 应该如何完成：
 
-1. 设计 `knowledge_documents` 和 `knowledge_chunks` 表。
-2. 使用 Alembic 新增迁移。
-3. 在课件上传后触发文本解析流程，支持 PDF、TXT、DOCX。
-4. 将文本按课程、文件、章节切片。
-5. 调用 embedding 模型生成向量。
-6. 使用 pgvector 保存 chunk 向量。
-7. 在 `VectorStore.search()` 中按 `course_id` 和 query embedding 检索相似 chunk。
-8. `prompt_builder.py` 将检索结果拼入 prompt。
-9. `AssistantMessageResponse.citations` 返回文件名、片段、页码或 chunk 信息。
+1. 接入外部 embedding 模型，替换本地哈希向量。
+2. 使用 Alembic 增加 pgvector 原生向量列和索引。
+3. 将已有 `knowledge_chunks.embedding` 数据迁移到新的向量列。
+4. 优化 `VectorStore.search()` 的相似度排序、关键词混合权重和课程过滤。
+5. 为 PDF 页码、DOCX 段落和章节信息补充更清晰的 citation 元数据。
+6. 增加 OCR/版面解析能力，把扫描件和图片课件纳入知识库。
+7. 增加知识库重建脚本，支持课件更新后重新切片和重新生成向量。
 
 建议涉及文件：
 
@@ -491,24 +511,26 @@ docs/database-design.md
 - 上传课程资料后能在数据库看到文档和 chunk。
 - AI 提问能基于相关资料回答。
 - 回答包含可展示的引用来源。
+- 相似度检索可使用 pgvector 索引，真实课程资料增多后仍能保持响应速度。
 
-### 3.3 建立正式 Alembic 数据库迁移
+### 3.3 完善 Alembic 数据库迁移流程
 
 优先级：高。
 
 当前问题：
 
-- 当前仍依赖 `Base.metadata.create_all()` 和 `init_db.py` 中的补丁 SQL。
-- 随着字段增加，生产环境升级风险很高。
+- 项目已提供 Alembic 配置和首版初始 schema 迁移。
+- 开发环境启动仍保留 `Base.metadata.create_all()` 和 `init_db.py` 中的兼容补丁 SQL。
+- 还需要完成真实 PostgreSQL 在线迁移演练、回滚流程和后续变更规范。
 
 应该如何完成：
 
-1. 初始化 Alembic 配置。
-2. 生成当前数据库结构的第一版 baseline migration。
-3. 将 `init_db.py` 中的开发期 `ALTER TABLE` 补丁固化为 migration。
-4. 启动时不再依赖补丁 SQL 修改生产 schema。
+1. 在真实 PostgreSQL 环境执行 `alembic upgrade head` 在线验证。
+2. 将后续 schema 变更全部固化为新的 migration。
+3. 逐步移除生产启动对 `init_db.py` 补丁 SQL 的依赖。
+4. 为回滚、备份和失败恢复补充部署文档。
 5. 测试环境保留轻量初始化方式，或单独使用测试迁移。
-6. 文档中明确迁移命令和回滚方式。
+6. CI 中增加 migration 生成和离线 SQL 检查。
 
 建议涉及文件：
 
@@ -527,24 +549,24 @@ docs/deployment.md
 - 老环境能通过 migration 平滑升级。
 - 不再需要在生产启动时执行临时补丁 SQL。
 
-### 3.4 切换上传文件到 MinIO
+### 3.4 统一对象存储策略
 
 优先级：高。
 
 当前问题：
 
-- 课件、头像、论坛附件都写在后端本地磁盘。
-- Docker Compose 虽然启动 MinIO，但业务代码没有真正使用。
-- 容器重建或多实例部署时，本地文件容易丢失或不一致。
+- 课件资料已经支持 `STORAGE_BACKEND=local|minio`。
+- 头像和论坛附件仍写在后端本地目录。
+- 多实例部署、容器重建和备份恢复时，本地附件仍容易不一致。
 
 应该如何完成：
 
-1. 在 `object_storage.py` 中实现 MinIO 客户端。
-2. 定义统一上传接口：保存文件、删除文件、生成下载 URL。
-3. 改造 `files/service.py`、`users/service.py`、`forum/service.py` 使用对象存储。
-4. 数据库保存对象 key、原始文件名、MIME、大小和 bucket。
-5. 对私有文件使用后端代理下载或短期签名 URL。
-6. 增加迁移脚本，把已有本地文件迁移到 MinIO。
+1. 扩展 `object_storage.py` 的统一接口，覆盖头像和论坛附件。
+2. 改造 `users/service.py`、`forum/service.py` 使用对象存储。
+3. 为头像和论坛附件保存对象 key、原始文件名、MIME、大小和 bucket。
+4. 对私有文件使用后端代理下载或短期签名 URL。
+5. 增加迁移脚本，把已有本地头像和论坛附件迁移到 MinIO。
+6. 部署文档中明确本地存储目录挂载和 MinIO bucket 备份策略。
 
 建议涉及文件：
 
@@ -562,7 +584,7 @@ docs/deployment.md
 
 - 上传后的文件能在 MinIO bucket 中看到。
 - 删除课件会同步删除对象。
-- 重建 API 容器后已上传文件仍可下载。
+- 重建 API 容器后课件、头像和论坛附件仍可下载或展示。
 
 ### 3.5 完善学习记录闭环
 
@@ -570,17 +592,17 @@ docs/deployment.md
 
 当前问题：
 
-- `learning_records` 模块目前主要是预留。
-- 学习报告没有真实学习事件来源。
-- AI 提问、课件下载、课程学习等行为没有完整记录。
+- `learning_records` 模块已经能记录选课、章节、上传、论坛互动和 AI 提问等事件。
+- 课程学习进度仍主要是估算，缺少章节完成、资料阅读时长、测验结果等更细粒度事件。
+- 课件下载、在线预览停留时间和自主测试结果仍可继续补充。
 
 应该如何完成：
 
-1. 设计统一学习事件类型，例如 `course_enrolled`、`file_downloaded`、`forum_posted`、`assistant_asked`。
-2. 在课程、文件、论坛、AI 模块调用 `LearningRecordService` 写入事件。
-3. 为事件增加时间、课程、对象类型、对象 ID、元数据。
-4. 改造 `reports/service.py` 基于学习事件计算投入、进度和建议。
-5. 前端报告页展示更具体的学习轨迹。
+1. 补充 `file_downloaded`、`chapter_completed`、`quiz_finished`、`material_viewed` 等事件。
+2. 为事件增加更稳定的对象类型、对象 ID、元数据规范。
+3. 改造 `reports/service.py`，基于更细粒度事件计算投入、进度和建议。
+4. 前端报告页展示章节完成度、最近学习资料和自主测试反馈。
+5. 增加伴学师视角的学生学习概览。
 
 建议涉及文件：
 
@@ -600,24 +622,23 @@ apps/web/src/pages/LearningReportPage.tsx
 - 个人中心能展示真实事件时间线。
 - 报告统计不再只依赖粗略估算。
 
-### 3.6 增加课程章节和课件绑定
+### 3.6 增强课程章节、任务和进度
 
 优先级：中高。
 
 当前问题：
 
-- 课程只有标题、描述、教师和状态。
-- 没有章节、课时、任务和课程资料归属。
-- 课件资料是全局列表，未绑定课程。
+- 课程章节和课件绑定已经实现。
+- 还没有章节完成状态、课后任务、测验和作业提交。
+- 学生端仍可继续增强“我的课程”和学习路径视图。
 
 应该如何完成：
 
-1. 新增 `course_chapters` 表，包含课程 ID、标题、排序、描述。
-2. 新增 `course_materials` 或扩展 `file_assets`，绑定课程和章节。
-3. 后端提供章节 CRUD 和课程资料接口。
-4. 伴学师在课程详情页维护章节和资料。
-5. 学生在课程详情页按章节查看资料和学习进度。
-6. AI 检索时按课程资料过滤知识库。
+1. 为章节增加完成状态和学习进度。
+2. 增加课后任务、测验或作业提交结构。
+3. 伴学师可查看每个章节的学生完成情况。
+4. 学生在课程详情页看到下一步学习建议。
+5. AI 检索继续按课程/章节资料过滤知识库。
 
 建议涉及文件：
 
@@ -635,6 +656,7 @@ docs/database-design.md
 - 伴学师能给课程添加章节。
 - 课件能绑定到课程或章节。
 - 学生进入课程详情能按章节查看资料。
+- 学生能标记或自动记录章节学习进度。
 
 ### 3.7 完善论坛高级能力
 
@@ -642,21 +664,18 @@ docs/database-design.md
 
 当前问题：
 
-- 没有分页。
-- 没有搜索。
-- 没有按课程筛选。
+- 已有分页、关键词搜索和按课程筛选。
 - 帖子不能编辑。
 - 删除是硬删除。
 - 没有举报、审核和内容安全机制。
 
 应该如何完成：
 
-1. 后端 `list_posts` 增加分页参数 `page`、`page_size`。
-2. 增加 `course_id`、关键词、作者等筛选条件。
-3. 新增帖子编辑接口，只允许作者或伴学师按规则操作。
-4. 将硬删除改为软删除字段，例如 `deleted_at`、`deleted_by`。
-5. 新增举报表和审核状态。
-6. 前端论坛页增加搜索框、筛选器、分页器和编辑入口。
+1. 新增帖子编辑接口，只允许作者或伴学师按规则操作。
+2. 将硬删除改为软删除字段，例如 `deleted_at`、`deleted_by`。
+3. 新增举报表和审核状态。
+4. 增加内容安全检查和违规词提示。
+5. 前端论坛页增加编辑入口、举报入口和审核状态提示。
 
 建议涉及文件：
 
@@ -852,9 +871,9 @@ apps/web/src/pages/
 任务：
 
 1. 完善课程、论坛、文件、消息的后端测试。
-2. 建立 Alembic baseline migration。
+2. 在真实 PostgreSQL 上验证 Alembic 初始迁移和后续迁移流程。
 3. 修复 Docker 环境变量和部署文档中容易踩坑的地方。
-4. 清理未跟踪但需要提交的前端新文件。
+4. 整理演示数据脚本、截图账号和展示文案。
 5. 做一次完整 Docker 重建验证。
 
 ### Phase 2: 补齐学习平台核心
@@ -863,25 +882,25 @@ apps/web/src/pages/
 
 任务：
 
-1. 课程章节。
-2. 课件绑定课程和章节。
-3. 学习事件写入。
-4. 学习报告基于真实事件。
-5. 论坛分页、筛选和编辑。
+1. 章节学习进度。
+2. 课后任务、测验和自主反馈。
+3. 更细粒度学习事件。
+4. 伴学师学生概览。
+5. 论坛帖子编辑、举报和审核流程。
 
-### Phase 3: 完成 AI 能力
+### Phase 3: 增强 AI 能力
 
-目标：让 AI 伴学从占位变成可用。
+目标：让 AI 伴学从可演示走向更稳定、更安全、更懂课程资料。
 
 任务：
 
-1. 接入真实 LLM。
-2. 课件解析。
-3. chunk 切分。
-4. embedding 入库。
-5. pgvector 检索。
-6. 引用来源展示。
-7. 对话历史和反馈。
+1. 外部 embedding 模型。
+2. pgvector 原生向量列和索引。
+3. SSE 流式输出。
+4. 会话列表、历史消息和多轮上下文预算。
+5. 回答反馈、评测集和人工复核。
+6. 输入限流、输出安全检查和审计。
+7. OCR 与复杂课件解析。
 
 ### Phase 4: 生产化
 
@@ -889,7 +908,7 @@ apps/web/src/pages/
 
 任务：
 
-1. 上传文件切换 MinIO。
+1. 头像和论坛附件统一切换对象存储。
 2. WebSocket 或 SSE 实时消息。
 3. 细粒度权限。
 4. 安全加固。

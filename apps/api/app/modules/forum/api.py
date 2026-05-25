@@ -1,5 +1,6 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -46,9 +47,17 @@ async def create_post(
 
 
 @router.get("/attachments/{stored_name}/download")
-def download_attachment(stored_name: str, db: Session = Depends(get_db)) -> FileResponse:
-  path = ForumService(db).get_attachment_path(stored_name)
-  return FileResponse(path)
+def download_attachment(
+  stored_name: str,
+  db: Session = Depends(get_db),
+  current_user: User | None = Depends(get_optional_current_user),
+) -> Response:
+  data, content_type, original_name = ForumService(db).get_attachment(stored_name, current_user)
+  return Response(
+    content=data,
+    media_type=content_type,
+    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(original_name)}"},
+  )
 
 
 @router.get("/posts/{post_id}/comments", response_model=list[ForumCommentResponse])

@@ -8,8 +8,14 @@ class CourseRepository:
   def __init__(self, db: Session) -> None:
     self.db = db
 
-  def list_courses(self) -> list[Course]:
-    return list(self.db.scalars(select(Course).order_by(Course.id.desc())).all())
+  def list_courses(self, current_user_id: int | None = None, include_drafts: bool = False) -> list[Course]:
+    statement = select(Course)
+    if not include_drafts:
+      statement = statement.where(Course.status == "published")
+    elif current_user_id is not None:
+      statement = statement.where((Course.status == "published") | (Course.teacher_id == current_user_id))
+    statement = statement.order_by(Course.id.desc())
+    return list(self.db.scalars(statement).all())
 
   def get_course(self, course_id: int) -> Course | None:
     return self.db.get(Course, course_id)
@@ -61,6 +67,18 @@ class CourseRepository:
     return self.db.scalar(
       select(func.count()).select_from(CourseEnrollment).where(CourseEnrollment.course_id == course_id)
     ) or 0
+
+  def list_enrollments(self, course_id: int) -> list[CourseEnrollment]:
+    return list(
+      self.db.scalars(
+        select(CourseEnrollment)
+        .where(CourseEnrollment.course_id == course_id)
+        .order_by(CourseEnrollment.created_at.desc(), CourseEnrollment.id.desc())
+      ).all()
+    )
+
+  def get_enrollment_by_id(self, enrollment_id: int) -> CourseEnrollment | None:
+    return self.db.get(CourseEnrollment, enrollment_id)
 
   def list_chapters(self, course_id: int) -> list[CourseChapter]:
     return list(

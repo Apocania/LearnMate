@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -44,5 +46,15 @@ class CourseChapterResponse(BaseModel):
   title: str
   description: str
   sort_order: int
+
+  model_config = {"from_attributes": True}
+
+
+class CourseEnrollmentResponse(BaseModel):
+  id: int
+  course_id: int
+  student_id: int
+  student_name: str
+  created_at: datetime
 
   model_config = {"from_attributes": True}

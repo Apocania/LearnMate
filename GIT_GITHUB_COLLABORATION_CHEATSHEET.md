@@ -1,5 +1,7 @@
 # Git 开发与 GitHub 多人协作命令查询大全
 
+更新日期：2026-05-23
+
 > 适用于日常 Git 本地开发、分支管理、远程同步、Pull Request 协作、冲突处理、版本回退与发布流程。
 
 ## 目录
@@ -1058,4 +1060,3 @@ git switch other-branch
 ```bash
 git stash pop
 ```
-

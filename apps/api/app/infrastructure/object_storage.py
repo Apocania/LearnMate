@@ -22,11 +22,13 @@ class ObjectStorageClient:
     LOCAL_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
   def put_object(self, object_key: str, data: bytes, content_type: str) -> StoredObject:
+    object_key = self._normalize_object_key(object_key)
     if self.backend == "minio":
       return self._put_minio_object(object_key, data, content_type)
     return self._put_local_object(object_key, data)
 
   def get_local_path(self, object_key: str) -> Path:
+    object_key = self._normalize_object_key(object_key)
     path = (LOCAL_STORAGE_DIR / object_key).resolve()
     if LOCAL_STORAGE_DIR.resolve() not in path.parents and path != LOCAL_STORAGE_DIR.resolve():
       raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="文件路径无效")
@@ -35,6 +37,7 @@ class ObjectStorageClient:
     return path
 
   def read_object(self, object_key: str, provider: str | None = None) -> bytes:
+    object_key = self._normalize_object_key(object_key)
     if (provider or self.backend) == "minio":
       client = self._create_minio_client()
       try:
@@ -49,6 +52,7 @@ class ObjectStorageClient:
     return self.get_local_path(object_key).read_bytes()
 
   def delete_object(self, object_key: str, provider: str | None = None) -> None:
+    object_key = self._normalize_object_key(object_key)
     if (provider or self.backend) == "minio":
       client = self._create_minio_client()
       client.remove_object(settings.minio_bucket, object_key)
@@ -91,3 +95,14 @@ class ObjectStorageClient:
       secret_key=settings.minio_secret_key,
       secure=secure,
     )
+
+  def _normalize_object_key(self, object_key: str) -> str:
+    if "\\" in object_key:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="文件路径无效")
+    path = Path(object_key)
+    if path.is_absolute() or ".." in path.parts:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="文件路径无效")
+    normalized = path.as_posix().lstrip("/")
+    if not normalized:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="文件路径无效")
+    return normalized

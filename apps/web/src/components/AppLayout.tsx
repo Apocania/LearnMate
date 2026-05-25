@@ -1,7 +1,7 @@
 import {
   BookOutlined,
-  BulbOutlined,
   CloudUploadOutlined,
+  HeartFilled,
   MessageOutlined,
   NotificationOutlined,
   RobotOutlined,
@@ -21,7 +21,7 @@ import { UserAvatar } from "./UserAvatar";
 const navItems = [
   { key: "/courses", icon: <BookOutlined />, label: "课程中心" },
   { key: "/forum", icon: <MessageOutlined />, label: "讨论交流" },
-  { key: "/assistant", icon: <RobotOutlined />, label: "AI伴学" },
+  { key: "/assistant", icon: <RobotOutlined />, label: "智能伴学" },
   { key: "/reports/me", icon: <UserOutlined />, label: "个人中心" }
 ];
 
@@ -85,7 +85,7 @@ export function AppLayout() {
       <Layout.Header className="top-header">
         <button className="brand-button" type="button" onClick={() => navigate("/")}>
           <span className="brand-mascot">
-            <BulbOutlined />
+            <HeartFilled />
           </span>
           <span className="brand-copy">
             <Typography.Text className="brand-title">LearnMate</Typography.Text>
@@ -174,7 +174,7 @@ export function AppLayout() {
                 <CloudUploadOutlined />
               </p>
               <p className="ant-upload-text">{isUploadingAvatar ? "正在上传头像..." : "点击或拖拽图片上传头像"}</p>
-              <p className="ant-upload-hint">支持 JPG、PNG、WebP、GIF，单张不超过 3MB。</p>
+              <p className="ant-upload-hint">支持常见图片格式，单张不超过 3 兆。</p>
             </Upload.Dragger>
           </Space>
         ) : null}

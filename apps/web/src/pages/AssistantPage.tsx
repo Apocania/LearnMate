@@ -12,8 +12,29 @@ const starterMessages: ChatMessage[] = [
   {
     id: "welcome",
     role: "assistant",
-    author: "LearnMate AI",
+    author: "LearnMate",
     content: "你好，我可以结合已上传的课程资料回答问题，也可以帮你整理复习建议。"
+  },
+  {
+    id: "sample-user",
+    role: "user",
+    author: "示例学生",
+    content: "3/4 和 2/3 谁的星球能量更多？"
+  },
+  {
+    id: "sample-assistant",
+    role: "assistant",
+    author: "LearnMate",
+    content: "可以先把两个分数通分成 9/12 和 8/12，所以 3/4 更大。也可以画两个一样大的能量饼，把每份平均切开后再比较涂色部分。",
+    citations: [
+      {
+        document_id: "demo-space",
+        title: "星际数学探险-任务卡.txt",
+        chunk_index: 1,
+        snippet: "比较分数时，先看分母代表被分成几份，再看分子代表拿到几份。",
+        source_url: null
+      }
+    ]
   }
 ];
 
@@ -66,7 +87,7 @@ export function AssistantPage() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          author: "LearnMate AI",
+          author: "LearnMate",
           content: response.answer,
           citations: response.citations
         }
@@ -77,8 +98,8 @@ export function AssistantPage() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          author: "LearnMate AI",
-          content: error instanceof Error ? error.message : "AI伴学暂时无法回答，请稍后再试。"
+          author: "LearnMate",
+          content: error instanceof Error ? error.message : "智能伴学暂时无法回答，请稍后再试。"
         }
       ]);
     } finally {
@@ -95,17 +116,17 @@ export function AssistantPage() {
 
   return (
     <>
-      <PageHeader title="AI伴学" description="结合课程资料检索、引用来源和学习记录，陪你提问、复习和整理知识。" />
+      <PageHeader title="智能伴学" description="结合课程资料检索、引用来源和学习记录，陪你提问、复习和整理知识。" />
       {!currentUser ? (
         <Alert
           className="section-row"
-          message="请先登录后使用 AI伴学"
-          description="游客可以浏览课程和讨论内容，登录学生或伴学师身份后可以与 AI 交流。"
+          message="请先登录后使用智能伴学"
+          description="游客可以浏览课程和讨论内容，登录学生或伴学师身份后可以与智能伴学交流。"
           showIcon
           type="info"
         />
       ) : null}
-      <section className="discord-chat-shell" aria-label="AI 伴学聊天">
+      <section className="discord-chat-shell" aria-label="智能伴学聊天">
         <aside className="chat-sidebar">
           <Typography.Text className="chat-sidebar-label">频道</Typography.Text>
           <button className="chat-channel active" type="button">
@@ -132,7 +153,7 @@ export function AssistantPage() {
         <div className="chat-main">
           <div className="chat-main-header">
             <Space direction="vertical" size={2}>
-              <Typography.Title level={4}># 课程答疑</Typography.Title>
+              <Typography.Title level={4}>课程答疑</Typography.Title>
               <Typography.Text type="secondary">
                 {selectedCourseId ? "优先检索所选课程的课件资料，并在回答下方显示引用。" : "未选择课程时，会在全局资料中检索可用内容。"}
               </Typography.Text>
@@ -191,7 +212,7 @@ export function AssistantPage() {
                   void handleSend();
                 }
               }}
-              placeholder={currentUser ? "向 #课程答疑 发送消息" : "登录后可以发送消息"}
+              placeholder={currentUser ? "向课程答疑发送消息" : "登录后可以发送消息"}
               value={input}
             />
             <Button

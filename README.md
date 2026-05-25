@@ -1,5 +1,7 @@
 # LearnMate
 
+更新日期：2026-05-23
+
 `LearnMate` 是一个面向师生教学场景的智能学习伙伴平台。
 
 当前技术栈：
@@ -25,6 +27,8 @@ Docker Compose
 - 顶部用户区支持圆形头像、头像上传和消息未读角标。
 - 课件可绑定课程和章节，上传后会抽取文本并切分为知识库片段；AI 伴学会返回回答、会话 ID 和引用来源。
 - 已加入 Alembic 迁移骨架和初始 schema，开发环境仍保留 `create_all()` 补列以兼容旧库。
+- 已提供儿童学习主题的演示数据脚本和演示头像，适合项目截图、课程展示和原型路演。
+- 当前 UI 已调整为明亮、活泼、面向儿童学习场景的视觉风格。
 
 ## Project Structure
 
@@ -39,12 +43,13 @@ data          示例数据和知识库资料
 
 ## Development
 
-前端：
+推荐开发方式是：Docker 只启动基础服务，后端和前端分别在本机热重载启动。
+
+基础服务：
 
 ```bash
-cd apps/web
-npm install
-npm run dev
+cd deploy
+docker compose up -d postgres redis minio
 ```
 
 后端：
@@ -54,15 +59,44 @@ cd apps/api
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+cp .env.example .env
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-基础服务：
+前端：
 
 ```bash
-cd deploy
-docker compose up -d
+cd apps/web
+npm install
+npm run dev
 ```
+
+访问地址：
+
+```text
+前端：http://localhost:5173
+后端：http://localhost:8000
+接口文档：http://localhost:8000/docs
+```
+
+## Demo Data
+
+截图展示或本地验收前，可以生成儿童学习主题演示数据：
+
+```bash
+cd apps/api
+source .venv/bin/activate
+python scripts/seed_demo_data.py
+```
+
+演示账号：
+
+```text
+学生：demo_student / password123
+伴学师：demo_mentor / password123
+```
+
+## Docker Compose
 
 Docker 全量启动：
 
@@ -109,4 +143,4 @@ APP_ENV=test .venv/bin/python -m alembic upgrade head --sql
 - `apps/api/.env.example` 适合本机开发；Docker Compose 场景建议从 `deploy/env.example` 复制到 `apps/api/.env`。
 - `project_structure_1.md` 是当前项目结构说明，按目录和关键文件解释命名、作用和功能归属。
 - 当前 AI 伴学支持本地 embedding + 关键词混合检索和引用来源；配置 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 后可调用 OpenAI 兼容大模型。pgvector 原生索引仍可作为后续增强。
-- 当前文件上传默认使用后端本地目录；设置 `STORAGE_BACKEND=minio` 后可切换到 MinIO。
+- 当前课件上传默认使用后端本地目录；设置 `STORAGE_BACKEND=minio` 后课件可切换到 MinIO。头像和论坛附件仍使用后端本地目录，后续可统一迁移到对象存储。

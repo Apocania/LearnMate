@@ -21,6 +21,10 @@ logs/
 # local uploaded files
 apps/api/storage/uploads/*
 !apps/api/storage/uploads/.gitkeep
+apps/api/storage/avatars/*
+!apps/api/storage/avatars/demo-student.svg
+!apps/api/storage/avatars/demo-mentor.svg
+!apps/api/storage/avatars/star-reader.svg
 
 # editor
 .idea/
