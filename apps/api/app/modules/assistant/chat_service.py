@@ -16,10 +16,44 @@ class AssistantChatService:
     self.llm_client = LLMClient()
 
   def answer(self, question: str, current_user: User, course_id: int | None = None, session_id: int | None = None) -> AssistantMessageResponse:
+    prepared = self._prepare_answer(question, current_user, course_id, session_id)
+    answer = self.llm_client.chat(prepared["prompt"])
+    self._persist_answer(
+      question,
+      answer,
+      current_user,
+      course_id,
+      prepared["session"].id,
+      prepared["citations"],
+    )
+    return AssistantMessageResponse(session_id=prepared["session"].id, answer=answer, citations=prepared["citations"])
+
+  def stream_answer(self, question: str, current_user: User, course_id: int | None = None, session_id: int | None = None):
+    prepared = self._prepare_answer(question, current_user, course_id, session_id)
+    answer_parts: list[str] = []
+    yield {
+      "type": "meta",
+      "session_id": prepared["session"].id,
+      "citations": [citation.model_dump() for citation in prepared["citations"]],
+    }
+    for chunk in self.llm_client.stream_chat(prepared["prompt"]):
+      answer_parts.append(chunk)
+      yield {"type": "delta", "content": chunk}
+    answer = "".join(answer_parts)
+    self._persist_answer(
+      question,
+      answer,
+      current_user,
+      course_id,
+      prepared["session"].id,
+      prepared["citations"],
+    )
+    yield {"type": "done"}
+
+  def _prepare_answer(self, question: str, current_user: User, course_id: int | None, session_id: int | None):
     session = self._resolve_session(question, current_user, course_id, session_id)
     chunks = self.retrieval_service.retrieve(question, course_id)
     prompt = build_course_prompt(question, chunks)
-    answer = self.llm_client.chat(prompt)
     citations = [
       AssistantCitation(
         document_id=chunk.get("document_id", ""),
@@ -30,18 +64,29 @@ class AssistantChatService:
       )
       for chunk in chunks
     ]
+    return {"session": session, "prompt": prompt, "citations": citations}
+
+  def _persist_answer(
+    self,
+    question: str,
+    answer: str,
+    current_user: User,
+    course_id: int | None,
+    session_id: int,
+    citations: list[AssistantCitation],
+  ) -> None:
     self.repository.create_message(
       user_id=current_user.id,
       role="user",
       content=question,
-      session_id=session.id,
+      session_id=session_id,
       course_id=course_id,
     )
     self.repository.create_message(
       user_id=current_user.id,
       role="assistant",
       content=answer,
-      session_id=session.id,
+      session_id=session_id,
       course_id=course_id,
       citations=citations,
     )
@@ -51,7 +96,6 @@ class AssistantChatService:
       course_id=course_id,
       metadata={"question": question[:120], "citation_count": str(len(citations))},
     )
-    return AssistantMessageResponse(session_id=session.id, answer=answer, citations=citations)
 
   def _resolve_session(self, question: str, current_user: User, course_id: int | None, session_id: int | None):
     if session_id is not None:

@@ -5,6 +5,15 @@ export type LearningProgressItem = {
   percent: number;
 };
 
+export type TeachingCourseSummary = {
+  id: number;
+  title: string;
+  status: string;
+  enrollment_count: number;
+  chapter_count: number;
+  file_count: number;
+};
+
 export type MyLearningReport = {
   user_id: number;
   username: string;
@@ -16,6 +25,9 @@ export type MyLearningReport = {
   ai_question_count: number;
   uploaded_file_count: number;
   learning_event_count: number;
+  student_count: number;
+  chapter_count: number;
+  course_summaries: TeachingCourseSummary[];
   estimated_study_hours: number;
   progress: LearningProgressItem[];
   recent_activities: string[];

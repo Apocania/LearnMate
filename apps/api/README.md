@@ -1,6 +1,6 @@
 # LearnMate API
 
-更新日期：2026-05-23
+更新日期：2026-05-25
 
 LearnMate 的 FastAPI 后端应用。
 
@@ -38,12 +38,12 @@ STORAGE_BACKEND=local
 ## Main Modules
 
 - `auth/users`：注册、登录、当前用户解析、可选用户解析、角色权限工具和个人头像上传。用户名会去空格、小写化，并限制为 3-32 位英文、数字或下划线。
-- `courses`：课程浏览、伴学师课程管理、学生加入/退出课程、章节目录维护，响应会返回 `enrollment_count` 和 `joined_by_me`。
-- `forum`：游客浏览帖子和评论，支持分页、课程筛选、关键词搜索。登录用户使用 Markdown 正文和最多 5 个附件发帖、评论、点赞并删除自己的评论，伴学师可隐藏、恢复、删除帖子和评论。
+- `courses`：课程浏览、伴学师课程管理、学生加入/退出课程、课程学生名单管理、章节目录维护，响应会返回 `enrollment_count` 和 `joined_by_me`。草稿课程仅创建它的伴学师可见。
+- `forum`：游客浏览帖子和评论，支持分页、课程筛选、关键词搜索。登录用户使用 Markdown 正文和最多 5 个附件发帖、评论、点赞并删除自己的评论，伴学师可隐藏、恢复、删除帖子和评论；草稿课程关联帖子仅课程创建者可见。
 - `messages`：登录用户查看消息和未读数；点赞/评论会给帖子作者生成提醒；伴学师可发送私信和面向学生的公告。
-- `files`：课件列表、上传、下载、删除。课件可绑定课程和章节，上传后会抽取文本并写入知识库 chunk。只有伴学师可上传，且只能删除自己上传的课件。
+- `files`：课件列表、上传、下载、删除。课件可绑定课程和章节，上传后会抽取文本并写入知识库 chunk。只有伴学师可上传，且只能删除自己上传的课件；草稿课程课件仅课程创建者可见。
 - `assistant`：登录后调用 `/api/assistant/messages`，按课程资料检索知识库，返回回答、会话 ID 和引用来源；配置大模型后使用 OpenAI 兼容接口，否则使用本地检索式回答。
-- `reports`：登录后返回个人中心统计，包括选课/建课、讨论互动、AI 问答、资料上传、估算学习投入和建议。
+- `reports`：登录后返回个人中心统计。学生获得学习报告；伴学师获得教学看板数据，包括课程数、学生数、章节数、课件数、课程概览、教学动态和建议。
 - `learning_records`：统一记录选课、发帖、评论、点赞、上传资料、AI 提问等学习事件，并提供个人时间线接口。
 
 ## API Summary
@@ -60,6 +60,8 @@ PUT    /api/courses/{course_id}
 DELETE /api/courses/{course_id}
 POST   /api/courses/{course_id}/enroll
 DELETE /api/courses/{course_id}/enroll
+GET    /api/courses/{course_id}/enrollments
+DELETE /api/courses/{course_id}/enrollments/{enrollment_id}
 GET    /api/courses/{course_id}/chapters
 POST   /api/courses/{course_id}/chapters
 PUT    /api/courses/{course_id}/chapters/{chapter_id}
@@ -122,8 +124,8 @@ APP_ENV=test .venv/bin/python -m pytest tests
 
 MinIO 配置和 Compose 服务已经预留。Docker 场景建议使用 `STORAGE_BACKEND=minio`，本机开发默认 `local`，便于不启动 MinIO 时也能跑完整闭环。
 
-## AI Notes
+## 智能伴学说明
 
-AI 伴学当前已经具备轻量 RAG 闭环：课件上传后抽取文本、切分 chunk、写入知识库；提问时按课程资料做本地 embedding + 关键词混合检索，并返回引用来源。未配置大模型时使用本地检索式回答；配置 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 后会调用 OpenAI 兼容接口。
+智能伴学当前已经具备轻量 RAG 闭环：课件上传后抽取文本、切分 chunk、写入知识库；提问时按课程资料做本地 embedding + 关键词混合检索，并返回引用来源。未配置大模型时使用本地检索式回答；配置 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 后会调用 OpenAI 兼容接口。
 
 接入真实模型前建议继续补齐：输入长度限制、每用户限流、`max_tokens`、拒答边界、输出安全检查和模型调用审计。

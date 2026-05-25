@@ -1,6 +1,6 @@
 # Database Design
 
-更新日期：2026-05-23
+更新日期：2026-05-25
 
 本文档用于记录数据库表设计。
 
@@ -47,6 +47,12 @@ knowledge_chunks
 | status | 课程状态，当前常用 `published` / `draft` |
 | created_at | 创建时间 |
 | updated_at | 更新时间 |
+
+可见性规则：
+
+- `published` 课程可被游客、学生和伴学师访问。
+- `draft` 课程仅创建它的伴学师可见。
+- 草稿课程关联的章节、课件和讨论内容也遵循同一可见性规则。
 
 ## course_enrollments
 
@@ -164,7 +170,7 @@ UNIQUE(post_id, user_id)
 | uploader_name | 上传者用户名快照 |
 | created_at | 上传时间 |
 
-当前文件内容默认存放在后端本地上传目录，数据库保存元数据。`STORAGE_BACKEND=minio` 时会写入 MinIO。上传文本类资料后会生成 `knowledge_chunks` 供 AI 检索。
+当前文件内容默认存放在后端本地上传目录，数据库保存元数据。`STORAGE_BACKEND=minio` 时会写入 MinIO。上传文本类资料后会生成 `knowledge_chunks` 供智能伴学检索。
 
 ## learning_events
 
@@ -188,7 +194,7 @@ UNIQUE(post_id, user_id)
 | course_id | 可选课程 ID |
 | summary | 报告摘要 |
 
-当前 `/api/reports/me` 会基于课程选课/建课和论坛互动做轻量统计；该表本身仍是后续持久化报告的预留结构。
+当前 `/api/reports/me` 会基于课程选课/建课、课程学生名单、章节、课件、论坛互动、智能伴学消息和学习事件做轻量统计。学生端展示学习报告；伴学师端展示教学看板。`learning_reports` 表本身仍是后续持久化报告的预留结构，目前伴学师看板中的 `student_count`、`chapter_count` 和 `course_summaries` 都是实时聚合字段，没有新增独立表。
 
 ## assistant_messages
 

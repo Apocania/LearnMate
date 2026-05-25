@@ -1,11 +1,12 @@
 import { DownloadOutlined, RobotOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
 import { Alert, Avatar, Button, Input, Select, Space, Tag, Typography } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { AssistantMessageResponse, sendAssistantMessage } from "../api/assistant";
+import { AssistantMessageResponse, streamAssistantMessage } from "../api/assistant";
 import { getApiBaseUrl } from "../api/client";
 import { Course, listCourses } from "../api/courses";
 import { PageHeader } from "../components/PageHeader";
+import { UserAvatar } from "../components/UserAvatar";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 const starterMessages: ChatMessage[] = [
@@ -54,7 +55,8 @@ export function AssistantPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(starterMessages);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const assistantStatus = useMemo(() => (isSending ? "正在检索..." : "在线"), [isSending]);
+  const messageListRef = useRef<HTMLDivElement | null>(null);
+  const assistantStatus = useMemo(() => (isSending ? "正在生成..." : "在线"), [isSending]);
 
   useEffect(() => {
     async function refreshCourses() {
@@ -67,6 +69,13 @@ export function AssistantPage() {
     void refreshCourses();
   }, []);
 
+  useEffect(() => {
+    const element = messageListRef.current;
+    if (element) {
+      element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+    }
+  }, [chatMessages]);
+
   async function handleSend() {
     const content = input.trim();
     if (!content || !currentUser) {
@@ -74,34 +83,43 @@ export function AssistantPage() {
     }
 
     setInput("");
+    const assistantMessageId = crypto.randomUUID();
     setChatMessages((current) => [
       ...current,
-      { id: crypto.randomUUID(), role: "user", author: currentUser.username, content }
+      { id: crypto.randomUUID(), role: "user", author: currentUser.username, content },
+      { id: assistantMessageId, role: "assistant", author: "LearnMate", content: "" }
     ]);
     setIsSending(true);
     try {
-      const response = await sendAssistantMessage({ content, course_id: selectedCourseId, session_id: sessionId });
-      setSessionId(response.session_id ?? sessionId);
-      setChatMessages((current) => [
-        ...current,
+      await streamAssistantMessage(
+        { content, course_id: selectedCourseId, session_id: sessionId },
         {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          author: "LearnMate",
-          content: response.answer,
-          citations: response.citations
+          onMeta: (event) => {
+            setSessionId(event.session_id ?? sessionId);
+            setChatMessages((current) =>
+              current.map((message) =>
+                message.id === assistantMessageId ? { ...message, citations: event.citations } : message
+              )
+            );
+          },
+          onDelta: (delta) => {
+            setChatMessages((current) =>
+              current.map((message) =>
+                message.id === assistantMessageId ? { ...message, content: `${message.content}${delta}` } : message
+              )
+            );
+          }
         }
-      ]);
+      );
     } catch (error) {
-      setChatMessages((current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          author: "LearnMate",
-          content: error instanceof Error ? error.message : "智能伴学暂时无法回答，请稍后再试。"
-        }
-      ]);
+      const errorMessage = error instanceof Error ? error.message : "智能伴学暂时无法回答，请稍后再试。";
+      setChatMessages((current) =>
+        current.map((message) =>
+          message.id === assistantMessageId
+            ? { ...message, content: message.content ? `${message.content}\n\n${errorMessage}` : errorMessage }
+            : message
+        )
+      );
     } finally {
       setIsSending(false);
     }
@@ -161,16 +179,27 @@ export function AssistantPage() {
             <span className={isSending ? "presence typing" : "presence"}>{assistantStatus}</span>
           </div>
 
-          <div className="chat-message-list">
+          <div className="chat-message-list" ref={messageListRef}>
             {chatMessages.map((message) => (
               <article className={message.role === "user" ? "chat-message user" : "chat-message"} key={message.id}>
-                <Avatar className="chat-avatar" icon={message.role === "user" ? <UserOutlined /> : <RobotOutlined />} />
+                {message.role === "user" ? (
+                  <UserAvatar
+                    avatarUrl={currentUser?.username === message.author ? currentUser.avatar_url : null}
+                    className="chat-avatar"
+                    size={42}
+                    username={message.author}
+                  />
+                ) : (
+                  <Avatar className="chat-avatar" icon={<RobotOutlined />} />
+                )}
                 <div className="chat-message-body">
                   <div className="chat-message-meta">
                     <Typography.Text strong>{message.author}</Typography.Text>
                     <Typography.Text type="secondary">刚刚</Typography.Text>
                   </div>
-                  <Typography.Paragraph>{message.content}</Typography.Paragraph>
+                  <Typography.Paragraph>
+                    {message.content || (message.role === "assistant" && isSending ? "正在整理回答..." : "")}
+                  </Typography.Paragraph>
                   {message.citations?.length ? (
                     <Space className="citation-list" direction="vertical" size={8}>
                       {message.citations.map((citation) => (

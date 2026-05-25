@@ -1,7 +1,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modules.courses.models import Course, CourseEnrollment
+from app.modules.courses.models import Course, CourseChapter, CourseEnrollment
 from app.modules.forum.models import ForumComment, ForumPost
 from app.modules.assistant.models import AssistantMessage
 from app.modules.files.models import FileAsset
@@ -19,6 +19,28 @@ class LearningReportRepository:
 
   def count_created_courses(self, user_id: int) -> int:
     return self.db.scalar(select(func.count()).select_from(Course).where(Course.teacher_id == user_id)) or 0
+
+  def count_students_for_teacher(self, user_id: int) -> int:
+    return (
+      self.db.scalar(
+        select(func.count(func.distinct(CourseEnrollment.student_id)))
+        .select_from(CourseEnrollment)
+        .join(Course, Course.id == CourseEnrollment.course_id)
+        .where(Course.teacher_id == user_id)
+      )
+      or 0
+    )
+
+  def count_chapters_for_teacher(self, user_id: int) -> int:
+    return (
+      self.db.scalar(
+        select(func.count())
+        .select_from(CourseChapter)
+        .join(Course, Course.id == CourseChapter.course_id)
+        .where(Course.teacher_id == user_id)
+      )
+      or 0
+    )
 
   def count_forum_posts(self, user_id: int) -> int:
     return self.db.scalar(select(func.count()).select_from(ForumPost).where(ForumPost.author_id == user_id)) or 0
@@ -64,6 +86,46 @@ class LearningReportRepository:
         select(Course.title).where(Course.teacher_id == user_id).order_by(Course.id.desc()).limit(limit)
       ).all()
     )
+
+  def list_teaching_course_summaries(self, user_id: int, limit: int = 5):
+    courses = list(
+      self.db.scalars(select(Course).where(Course.teacher_id == user_id).order_by(Course.id.desc()).limit(limit)).all()
+    )
+    if not courses:
+      return []
+
+    course_ids = [course.id for course in courses]
+    enrollment_rows = self.db.execute(
+      select(CourseEnrollment.course_id, func.count())
+      .where(CourseEnrollment.course_id.in_(course_ids))
+      .group_by(CourseEnrollment.course_id)
+    ).all()
+    chapter_rows = self.db.execute(
+      select(CourseChapter.course_id, func.count())
+      .where(CourseChapter.course_id.in_(course_ids))
+      .group_by(CourseChapter.course_id)
+    ).all()
+    file_rows = self.db.execute(
+      select(FileAsset.course_id, func.count())
+      .where(FileAsset.course_id.in_(course_ids))
+      .group_by(FileAsset.course_id)
+    ).all()
+
+    enrollment_count_by_course = {course_id: count for course_id, count in enrollment_rows}
+    chapter_count_by_course = {course_id: count for course_id, count in chapter_rows}
+    file_count_by_course = {course_id: count for course_id, count in file_rows}
+
+    return [
+      {
+        "id": course.id,
+        "title": course.title,
+        "status": course.status,
+        "enrollment_count": enrollment_count_by_course.get(course.id, 0),
+        "chapter_count": chapter_count_by_course.get(course.id, 0),
+        "file_count": file_count_by_course.get(course.id, 0),
+      }
+      for course in courses
+    ]
 
   def list_recent_events(self, user_id: int, limit: int = 5) -> list[LearningEvent]:
     return list(

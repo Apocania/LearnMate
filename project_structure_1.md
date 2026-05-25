@@ -1,6 +1,6 @@
 # LearnMate Project Structure
 
-更新日期：2026-05-23
+更新日期：2026-05-25
 
 本文档解释 LearnMate 当前项目结构、文件命名含义、文件作用和功能归属。文档按当前仓库实际代码编写，未跟踪的本地临时文件不纳入说明。
 
@@ -77,7 +77,7 @@ apps/web/src/
 | File | Meaning | Role |
 |---|---|---|
 | `src/main.tsx` | 前端启动入口 | 创建 React root，挂载路由和全局 provider。 |
-| `src/styles.css` | 全局样式 | 定义整体布局、导航、卡片、弹窗、论坛折叠、发帖编辑器、消息中心、AI 聊天等样式。 |
+| `src/styles.css` | 全局样式 | 定义整体布局、导航、卡片、弹窗、论坛折叠、发帖编辑器、消息中心、智能伴学聊天、模块对齐、悬停反馈和轻量动效等样式。 |
 | `src/vite-env.d.ts` | Vite 类型声明 | 为 TypeScript 提供 `import.meta.env` 等 Vite 类型。 |
 
 ### 3.2 `src/app`
@@ -85,7 +85,7 @@ apps/web/src/
 | File | Meaning | Role |
 |---|---|---|
 | `providers.tsx` | 应用级 provider | 集中包裹 Ant Design、React Router 等全局上下文。 |
-| `router.tsx` | 路由表 | 使用 `React.lazy` 懒加载页面，定义 `/login`、`/courses`、`/forum`、`/forum/new`、`/assistant`、`/messages`、`/reports/me` 等路由。 |
+| `router.tsx` | 路由表 | 使用 `React.lazy` 懒加载页面，定义 `/login`、`/courses`、`/courses/new`、`/forum`、`/forum/new`、`/assistant`、`/messages`、`/reports/me` 等路由。 |
 
 ### 3.3 `src/api`
 
@@ -95,12 +95,12 @@ apps/web/src/
 |---|---|---|
 | `client.ts` | API 请求核心 | 读取 `VITE_API_BASE_URL`，自动附加 token，统一处理 JSON、FormData、`401`、`204` 和错误消息。 |
 | `auth.ts` | 认证和用户接口 | 登录、注册、当前用户、头像上传。 |
-| `courses.ts` | 课程接口 | 课程列表、课程详情、创建、编辑、删除、加入和退出课程。 |
+| `courses.ts` | 课程接口 | 课程列表、课程详情、创建、编辑、删除、加入/退出课程和课程学生名单管理。 |
 | `forum.ts` | 论坛接口 | 帖子列表、Markdown/FormData 发帖、附件下载 URL、评论、删除评论、点赞、删除帖子。 |
 | `files.ts` | 课件接口 | 文件列表、上传、下载 URL、删除。 |
-| `assistant.ts` | AI 伴学接口 | 向 `/api/assistant/messages` 发送问题并接收回答。 |
+| `assistant.ts` | 智能伴学接口 | 向 `/api/assistant/messages` 发送问题并接收回答。 |
 | `messages.ts` | 消息接口 | 消息列表、未读数、标记已读、学生收件人、私信、公告。 |
-| `reports.ts` | 报告接口 | 读取个人中心和学习报告统计。 |
+| `reports.ts` | 报告接口 | 读取个人中心统计，学生侧为学习报告，伴学师侧为教学看板。 |
 
 ### 3.4 `src/components`
 
@@ -121,14 +121,15 @@ apps/web/src/
 |---|---|---|
 | `LoginPage.tsx` | `/login` | 登录和注册，注册时选择学生或伴学师，处理本地 session。 |
 | `DashboardPage.tsx` | `/` | 首页仪表盘，作为进入主要功能的入口。 |
-| `CourseListPage.tsx` | `/courses` | 课程中心。游客浏览，学生加入/退出课程，伴学师创建/编辑/删除课程。 |
-| `CourseDetailPage.tsx` | `/courses/:courseId` | 课程详情。展示课程信息、选课人数和加入状态。 |
-| `ForumPage.tsx` | `/forum` | 讨论交流列表。长帖自动折叠；展开全文、点赞、评论统一在右下角；评论区在帖子内展开；伴学师可管理帖子。 |
+| `CourseListPage.tsx` | `/courses` | 课程中心。游客和学生浏览已发布课程，学生加入/退出课程，伴学师查看自己的草稿并编辑/删除课程。 |
+| `CourseCreatePage.tsx` | `/courses/new` | 独立创建课程页。伴学师填写课程标题、介绍和状态，创建后进入课程详情继续维护。 |
+| `CourseDetailPage.tsx` | `/courses/:courseId` | 课程详情。展示课程信息、选课人数、章节、课件和加入状态；课程作者可管理章节、课件和学生名单。 |
+| `ForumPage.tsx` | `/forum` | 讨论交流列表。长帖自动折叠；展开全文、点赞、评论统一在右下角；评论区在帖子内展开；帖子不展示附带标签；伴学师可管理帖子。 |
 | `ForumPostEditorPage.tsx` | `/forum/new` | 独立发帖页面。支持标题、Markdown 正文、实时预览和最多 5 个附件。 |
 | `FilesPage.tsx` | `/files` | 课件资料。游客浏览下载，伴学师上传和删除自己上传的文件。 |
-| `AssistantPage.tsx` | `/assistant` | AI 伴学聊天界面。登录用户可选择课程资料并发送问题，后端返回回答和引用来源。 |
+| `AssistantPage.tsx` | `/assistant` | 智能伴学聊天界面。登录用户可选择课程资料并发送问题，后端返回回答和引用来源。 |
 | `MessagesPage.tsx` | `/messages` | 消息中心。查看点赞、评论、私信、公告；伴学师发送私信和公告。 |
-| `LearningReportPage.tsx` | `/reports/me` | 个人中心/学习报告。展示课程、互动、估算投入、进度和建议。 |
+| `LearningReportPage.tsx` | `/reports/me` | 个人中心。学生展示学习报告；伴学师展示课程建设、学生参与、章节资料、课程概览和教学建议。 |
 
 ### 3.6 `src/shared`
 
@@ -240,12 +241,12 @@ FastAPI 应用入口。它创建应用、配置 CORS、注册静态文件和所�
 | File | Role |
 |---|---|
 | `models.py` | 定义 `courses` 和 `course_enrollments` 表。 |
-| `schemas.py` | 课程创建、更新、响应模型，包含 `enrollment_count` 和 `joined_by_me`。 |
-| `repository.py` | 课程 CRUD、选课关系查询和计数。 |
-| `service.py` | 伴学师创建/编辑/删除课程，学生加入/退出课程，权限校验。 |
-| `api.py` | `/api/courses` 及课程详情、选课接口。 |
+| `schemas.py` | 课程创建、更新、响应模型，包含 `enrollment_count`、`joined_by_me` 和学生名单响应结构。 |
+| `repository.py` | 课程 CRUD、选课关系查询、学生名单查询和计数。 |
+| `service.py` | 伴学师创建/编辑/删除课程，学生加入/退出课程，学生名单管理，草稿课程可见性和权限校验。 |
+| `api.py` | `/api/courses`、课程详情、选课、学生名单和章节接口。 |
 
-相关功能：课程中心、课程详情、学生加入退出、伴学师课程管理。
+相关功能：课程中心、独立创建课程页、课程详情、学生加入退出、草稿课程仅创建者可见、伴学师课程管理和学生名单管理。
 
 ### 4.9 Forum Module: `app/modules/forum`
 
@@ -256,10 +257,10 @@ FastAPI 应用入口。它创建应用、配置 CORS、注册静态文件和所�
 | `models.py` | 定义 `forum_posts`、`forum_comments`、`forum_likes` 表。帖子用 `attachments` 文本字段保存附件 JSON。 |
 | `schemas.py` | 帖子、评论、附件、点赞响应模型。 |
 | `repository.py` | 帖子列表、评论列表、点赞切换、统计、头像查询、删除。 |
-| `service.py` | 发帖附件保存、权限校验、评论删除规则、点赞/评论消息提醒、附件下载路径校验。 |
+| `service.py` | 发帖附件保存、权限校验、评论删除规则、点赞/评论消息提醒、附件下载路径校验和草稿课程可见性校验。 |
 | `api.py` | `/api/forum/posts`、评论、点赞、删除和附件下载接口。 |
 
-相关功能：Markdown 发帖、最多 5 个附件、帖子列表自动折叠、右下角互动按钮、评论区内联展开、学生删除自己的评论、伴学师删除帖子和评论、点赞/评论提醒。
+相关功能：Markdown 发帖、最多 5 个附件、帖子列表自动折叠、取消帖子附带标签展示、右下角互动按钮、评论区内联展开、学生删除自己的评论、伴学师删除帖子和评论、点赞/评论提醒。
 
 ### 4.10 Messages Module: `app/modules/messages`
 
@@ -284,14 +285,14 @@ FastAPI 应用入口。它创建应用、配置 CORS、注册静态文件和所�
 | `models.py` | 定义 `file_assets` 表，保存原始名、存储名、MIME、大小、课程/章节归属、上传者和存储信息。 |
 | `schemas.py` | 文件响应模型。 |
 | `repository.py` | 文件元数据 CRUD。 |
-| `service.py` | 上传大小/类型校验、本地/MinIO 保存、下载路径、删除权限和知识库入库触发。 |
+| `service.py` | 上传大小/类型校验、本地/MinIO 保存、下载路径、删除权限、草稿课程可见性和知识库入库触发。 |
 | `api.py` | `/api/files`、上传、下载、删除。 |
 
-相关功能：课件资料页、游客下载、伴学师上传和删除自己上传的课件、课程/章节资料绑定、AI 知识库切片。
+相关功能：课件资料页、游客下载、伴学师上传和删除自己上传的课件、课程/章节资料绑定、草稿课程课件仅创建者可见、智能伴学知识库切片。
 
 ### 4.12 Assistant Module: `app/modules/assistant`
 
-AI 伴学模块负责课程资料检索、Prompt 构造、大模型调用/本地兜底回答、引用来源和会话持久化。
+智能伴学模块负责课程资料检索、Prompt 构造、大模型调用/本地兜底回答、引用来源和会话持久化。
 
 | File | Role |
 |---|---|
@@ -304,21 +305,21 @@ AI 伴学模块负责课程资料检索、Prompt 构造、大模型调用/本地
 | `knowledge_ingestion.py` | 上传课件后的文本抽取、切片和知识库入库流程。 |
 | `repository.py` | 会话、消息和知识库 chunk 持久化。 |
 
-相关功能：AI 伴学聊天页面、课程选择、后端鉴权、资料检索、引用来源、本地检索式回答和 OpenAI 兼容大模型配置。后续要增强外部 embedding、pgvector 原生索引、流式输出、会话列表和安全限制。
+相关功能：智能伴学聊天页面、课程选择、后端鉴权、资料检索、引用来源、本地检索式回答和 OpenAI 兼容大模型配置。后续要增强外部 embedding、pgvector 原生索引、流式输出、会话列表和安全限制。
 
 ### 4.13 Reports Module: `app/modules/reports`
 
-报告模块提供个人中心统计。
+报告模块提供个人中心统计，按用户身份返回学生学习报告或伴学师教学看板。
 
 | File | Role |
 |---|---|
 | `models.py` | 定义 `learning_reports` 预留表。 |
-| `schemas.py` | 个人报告响应结构。 |
-| `repository.py` | 查询课程、选课和论坛互动统计。 |
-| `service.py` | 生成课程数、互动数、估算学习投入、进度、学习轨迹和建议。 |
+| `schemas.py` | 个人报告响应结构，包含伴学师课程概览和教学看板聚合字段。 |
+| `repository.py` | 查询课程、选课、学生名单、章节、课件和论坛互动统计。 |
+| `service.py` | 生成课程数、互动数、估算学习投入、进度、学习轨迹、教学动态和建议。 |
 | `api.py` | `/api/reports/me`。 |
 
-相关功能：个人中心/学习报告页。
+相关功能：个人中心。学生查看学习报告，伴学师查看教学看板。
 
 ### 4.14 Learning Records Module: `app/modules/learning_records`
 
@@ -392,7 +393,7 @@ docker compose -f deploy/docker-compose.yml up -d --build web
 | `docs/README.md` | 设计文档目录说明。 |
 | `docs/api-design.md` | 接口设计，按 Auth、Users、Courses、Forum、Messages、Files、Assistant、Reports 分组。 |
 | `docs/database-design.md` | 当前数据库表、字段、约束和后续表设计建议。 |
-| `docs/ai-assistant-design.md` | AI 伴学 RAG 目标、当前状态、运行流程和下一步。 |
+| `docs/ai-assistant-design.md` | 智能伴学 RAG 目标、当前状态、运行流程和下一步。 |
 | `docs/deployment.md` | Docker Compose 部署、环境变量和当前限制。 |
 
 ## 9. Runtime Flow
@@ -447,7 +448,7 @@ AppLayout.tsx
   -> UserAvatar 显示新头像
 ```
 
-### 9.5 AI Assistant
+### 9.5 Smart Assistant
 
 ```text
 AssistantPage.tsx
@@ -463,9 +464,9 @@ AssistantPage.tsx
 
 ## 10. Current Important Limitations
 
-- AI 伴学已可演示，但外部 embedding、pgvector 原生索引、流式输出、前端会话列表、反馈和生产级安全限制仍需增强。
+- 智能伴学已可演示，但外部 embedding、pgvector 原生索引、流式输出、前端会话列表、反馈和生产级安全限制仍需增强。
 - 课件资料支持本地或 MinIO 存储，但头像和论坛附件当前仍写后端本地磁盘。
 - 项目已提供 Alembic 初始迁移，开发环境仍保留 `create_all()` 和补丁 SQL；生产环境应逐步完全切换到 migration 流程。
-- 课程章节和课件绑定已实现，但章节完成度、任务、测验和伴学师学生概览仍可继续补充。
+- 课程章节、课件绑定和伴学师学生名单已实现，但章节完成度、任务、测验、学生个人学习画像和课程健康度仍可继续补充。
 - 论坛已有分页、搜索和课程筛选，但帖子编辑、软删除、内容审核和举报仍待增强。
 - 学习记录已覆盖多类行为，但课件下载、章节完成、在线预览时长和测验结果等更细粒度事件仍可继续补齐。
