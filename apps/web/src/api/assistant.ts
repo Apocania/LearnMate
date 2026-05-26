@@ -5,6 +5,7 @@ export type AssistantMessageRequest = {
   content: string;
   course_id?: number | null;
   session_id?: number | null;
+  mode?: "qa" | "plan";
 };
 
 export type AssistantMessageResponse = {
@@ -18,6 +19,42 @@ export type AssistantMessageResponse = {
     source_url?: string | null;
   }>;
 };
+
+export type AssistantHistoryMessage = {
+  id: number;
+  role: "assistant" | "user";
+  content: string;
+  citations: AssistantMessageResponse["citations"];
+};
+
+export type AssistantSession = {
+  id: number;
+  course_id?: number | null;
+  title: string;
+  messages: AssistantHistoryMessage[];
+};
+
+export function listRecentAssistantMessages() {
+  return request<AssistantHistoryMessage[]>("/assistant/messages/recent");
+}
+
+export function getCurrentAssistantSession(params: { course_id?: number | null; session_id?: number | null } = {}) {
+  const query = new URLSearchParams();
+  if (params.course_id) {
+    query.set("course_id", String(params.course_id));
+  }
+  if (params.session_id) {
+    query.set("session_id", String(params.session_id));
+  }
+  return request<AssistantSession>(`/assistant/sessions/current${query.size ? `?${query.toString()}` : ""}`);
+}
+
+export function createAssistantSession(payload: { course_id?: number | null; title?: string } = {}) {
+  return request<AssistantSession>("/assistant/sessions", {
+    method: "POST",
+    body: JSON.stringify({ title: "新的伴学对话", ...payload })
+  });
+}
 
 export function sendAssistantMessage(payload: AssistantMessageRequest) {
   return request<AssistantMessageResponse>("/assistant/messages", {

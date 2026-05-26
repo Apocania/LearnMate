@@ -15,6 +15,7 @@ from app.modules.forum.api import router as forum_router
 from app.modules.learning_records.api import router as learning_records_router
 from app.modules.messages.api import router as messages_router
 from app.modules.reports.api import router as reports_router
+from app.modules.system.api import router as system_router
 from app.modules.users.api import router as users_router
 
 
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
   app.include_router(learning_records_router, prefix="/api/learning-records", tags=["learning-records"])
   app.include_router(messages_router, prefix="/api/messages", tags=["messages"])
   app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
+  app.include_router(system_router, prefix="/api/system", tags=["system"])
 
   return app
 

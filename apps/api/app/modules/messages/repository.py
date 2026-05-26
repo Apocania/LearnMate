@@ -2,6 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import User
+from app.modules.courses.models import Course, CourseEnrollment
 from app.modules.messages.models import UserMessage
 
 
@@ -92,3 +93,38 @@ class MessageRepository:
 
   def list_students(self) -> list[User]:
     return list(self.db.scalars(select(User).where(User.role == "student").order_by(User.username.asc())).all())
+
+  def get_owned_course(self, course_id: int, teacher_id: int) -> Course | None:
+    return self.db.scalar(select(Course).where(Course.id == course_id, Course.teacher_id == teacher_id))
+
+  def get_student_enrollment(self, course_id: int, student_id: int) -> CourseEnrollment | None:
+    return self.db.scalar(
+      select(CourseEnrollment).where(
+        CourseEnrollment.course_id == course_id,
+        CourseEnrollment.student_id == student_id,
+      )
+    )
+
+  def list_students_for_teacher_courses(self, teacher_id: int):
+    return list(
+      self.db.execute(
+        select(User, Course.id, Course.title)
+        .select_from(CourseEnrollment)
+        .join(Course, Course.id == CourseEnrollment.course_id)
+        .join(User, User.id == CourseEnrollment.student_id)
+        .where(Course.teacher_id == teacher_id, User.role == "student")
+        .order_by(Course.title.asc(), User.username.asc())
+      ).all()
+    )
+
+  def list_students_for_course(self, course_id: int, teacher_id: int) -> list[User]:
+    return list(
+      self.db.scalars(
+        select(User)
+        .select_from(CourseEnrollment)
+        .join(Course, Course.id == CourseEnrollment.course_id)
+        .join(User, User.id == CourseEnrollment.student_id)
+        .where(Course.id == course_id, Course.teacher_id == teacher_id, User.role == "student")
+        .order_by(User.username.asc())
+      ).all()
+    )

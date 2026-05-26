@@ -10,6 +10,8 @@ class VectorStore:
     self.repository = AssistantRepository(db)
 
   def search(self, query: str, course_id: int | None = None) -> list[dict[str, str]]:
+    if course_id is None:
+      return []
     terms = self._tokenize(query)
     chunks = self.repository.search_chunks(terms, course_id=course_id)
     return [

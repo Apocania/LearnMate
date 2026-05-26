@@ -168,7 +168,7 @@ export function LearningReportPage() {
       <Row gutter={[16, 16]}>
         <Col lg={6} md={12} xs={24}>
           <Card>
-            <Statistic title="估算学习投入" value={report?.estimated_study_hours ?? 0} suffix="小时" />
+            <Statistic title="学习时长" value={report?.study_hours ?? 0} suffix="小时" />
           </Card>
         </Col>
         <Col lg={6} md={12} xs={24}>

@@ -21,6 +21,8 @@ export type StudentRecipient = {
   id: number;
   username: string;
   avatar_url?: string | null;
+  course_id: number;
+  course_title: string;
 };
 
 export function listMessages() {
@@ -47,14 +49,14 @@ export function listStudentRecipients() {
   return request<StudentRecipient[]>("/messages/student-recipients");
 }
 
-export function sendPrivateMessage(payload: { recipient_username: string; title: string; content: string }) {
+export function sendPrivateMessage(payload: { course_id: number; recipient_username: string; title: string; content: string }) {
   return request<UserMessage>("/messages/private", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export function sendAnnouncement(payload: { title: string; content: string }) {
+export function sendAnnouncement(payload: { course_id: number; title: string; content: string }) {
   return request<{ created_count: number }>("/messages/announcements", {
     method: "POST",
     body: JSON.stringify(payload)

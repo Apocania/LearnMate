@@ -40,7 +40,7 @@ def test_report_returns_current_user_summary() -> None:
       student_count=0,
       chapter_count=0,
       course_summaries=[],
-      estimated_study_hours=4.0,
+      study_hours=4.0,
       progress=[LearningProgressItem(label="课程参与", percent=50)],
       recent_activities=["加入课程：Python 入门"],
       suggestions=["继续参与讨论。"],

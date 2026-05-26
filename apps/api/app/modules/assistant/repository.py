@@ -4,6 +4,7 @@ import re
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func as sql_func
 
 from app.modules.assistant.models import AssistantMessage, AssistantSession, KnowledgeChunk
 from app.modules.assistant.schemas import AssistantCitation
@@ -25,6 +26,14 @@ class AssistantRepository:
     self.db.refresh(session)
     return session
 
+  def get_latest_session(self, user_id: int, course_id: int | None = None) -> AssistantSession | None:
+    statement = select(AssistantSession).where(AssistantSession.user_id == user_id)
+    if course_id is None:
+      statement = statement.where(AssistantSession.course_id.is_(None))
+    else:
+      statement = statement.where(AssistantSession.course_id == course_id)
+    return self.db.scalar(statement.order_by(AssistantSession.updated_at.desc(), AssistantSession.id.desc()).limit(1))
+
   def create_message(
     self,
     user_id: int,
@@ -43,6 +52,11 @@ class AssistantRepository:
       citations=json.dumps([citation.model_dump() for citation in citations or []], ensure_ascii=False),
     )
     self.db.add(message)
+    if session_id is not None:
+      session = self.db.get(AssistantSession, session_id)
+      if session is not None:
+        session.updated_at = sql_func.now()
+        self.db.add(session)
     self.db.commit()
     self.db.refresh(message)
     return message
@@ -53,6 +67,17 @@ class AssistantRepository:
         select(AssistantMessage)
         .where(AssistantMessage.user_id == user_id, AssistantMessage.session_id == session_id)
         .order_by(AssistantMessage.id.desc())
+        .limit(limit)
+      ).all()
+    )
+    return list(reversed(messages))
+
+  def list_latest_messages(self, user_id: int, limit: int = 8) -> list[AssistantMessage]:
+    messages = list(
+      self.db.scalars(
+        select(AssistantMessage)
+        .where(AssistantMessage.user_id == user_id)
+        .order_by(AssistantMessage.created_at.desc(), AssistantMessage.id.desc())
         .limit(limit)
       ).all()
     )
@@ -87,7 +112,7 @@ class AssistantRepository:
       keyword_score = sum(haystack.count(term) for term in query_terms)
       vector_score = self._cosine(query_embedding, self._load_embedding(chunk.embedding))
       score = keyword_score + vector_score
-      if score > 0:
+      if keyword_score > 0 or vector_score >= 0.35:
         scored.append((score, chunk))
 
     scored.sort(key=lambda item: (item[0], item[1].id), reverse=True)

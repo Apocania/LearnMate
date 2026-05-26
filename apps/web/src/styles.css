@@ -1909,15 +1909,27 @@ textarea {
   font-size: 12px;
 }
 
-.chat-message-body .ant-typography {
+.chat-message-body .ant-typography,
+.chat-markdown {
   margin: 0;
   color: #24344a;
   line-height: 1.68;
-  white-space: pre-wrap;
 }
 
-.chat-message.user .chat-message-body .ant-typography {
+.chat-message.user .chat-message-body .ant-typography,
+.chat-message.user .chat-markdown {
   text-align: right;
+}
+
+.chat-markdown.markdown-preview {
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+}
+
+.chat-markdown.markdown-preview > :last-child {
+  margin-bottom: 0;
 }
 
 .citation-list {
@@ -2066,6 +2078,10 @@ textarea {
 }
 
 .auth-alert {
+  margin-bottom: 16px;
+}
+
+.form-inline-alert {
   margin-bottom: 16px;
 }
 

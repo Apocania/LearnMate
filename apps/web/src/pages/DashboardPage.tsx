@@ -7,16 +7,14 @@ import {
   ReadOutlined,
   RobotOutlined
 } from "@ant-design/icons";
-import { Button, Card, Col, List, Progress, Row, Space, Statistic, Tag, Typography } from "antd";
+import { Button, Card, Col, List, Progress, Row, Skeleton, Space, Statistic, Tag, Typography } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { MyLearningReport, getMyLearningReports } from "../api/reports";
+import { SystemStatusItem, getSystemStatus } from "../api/system";
 import { PageHeader } from "../components/PageHeader";
-
-const learningTasks = [
-  "完成《星际数学探险》的分数任务卡",
-  "在《瓶中彩虹》讨论里写下你的观察",
-  "向智能伴学提问：为什么 3/4 比 2/3 大？"
-];
+import { useCurrentUser } from "../shared/utils/useCurrentUser";
 
 const moduleCards = [
   {
@@ -51,6 +49,71 @@ const moduleCards = [
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const currentUser = useCurrentUser();
+  const [report, setReport] = useState<MyLearningReport | null>(null);
+  const [statusItems, setStatusItems] = useState<SystemStatusItem[]>([]);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+
+  useEffect(() => {
+    async function refreshDashboard() {
+      try {
+        const status = await getSystemStatus();
+        setStatusItems(Object.values(status));
+      } catch {
+        setStatusItems([]);
+      }
+    }
+    void refreshDashboard();
+  }, []);
+
+  useEffect(() => {
+    async function refreshReport() {
+      if (!currentUser) {
+        setReport(null);
+        return;
+      }
+      setIsLoadingReport(true);
+      try {
+        setReport(await getMyLearningReports());
+      } catch {
+        setReport(null);
+      } finally {
+        setIsLoadingReport(false);
+      }
+    }
+    void refreshReport();
+  }, [currentUser?.id]);
+
+  const metrics = useMemo(() => {
+    const interactionCount = (report?.forum_post_count ?? 0) + (report?.forum_comment_count ?? 0);
+    const averageProgress = report?.recent_course_progress.length
+      ? Math.round(
+          report.recent_course_progress.reduce((total, item) => total + item.percent, 0) /
+            report.recent_course_progress.length,
+        )
+      : 0;
+    if (currentUser?.role === "mentor") {
+      return [
+        { title: "创建课程", value: report?.created_course_count ?? 0, suffix: "门", icon: <BookOutlined /> },
+        { title: "课程学生", value: report?.student_count ?? 0, suffix: "人", icon: <ReadOutlined /> },
+        { title: "论坛互动", value: interactionCount, suffix: "条", icon: <MessageOutlined /> },
+        { title: "课程完善度", value: averageProgress, suffix: "%", icon: <LineChartOutlined /> }
+      ];
+    }
+    return [
+      { title: "已选课程", value: report?.enrolled_course_count ?? 0, suffix: "门", icon: <BookOutlined /> },
+      { title: "智能问答", value: report?.ai_question_count ?? 0, suffix: "次", icon: <RobotOutlined /> },
+      { title: "论坛互动", value: interactionCount, suffix: "条", icon: <MessageOutlined /> },
+      { title: "学习完成率", value: averageProgress, suffix: "%", icon: <ReadOutlined /> }
+    ];
+  }, [currentUser?.role, report]);
+
+  const progressItems = report?.recent_course_progress ?? [];
+  const tasks = report?.daily_tasks.length
+    ? report.daily_tasks
+    : currentUser
+      ? ["暂无今日建议，完成课程学习或参与讨论后会自动生成。"]
+      : ["登录后可查看你的学习建议、最近进度和个人统计。"];
 
   return (
     <>
@@ -80,36 +143,22 @@ export function DashboardPage() {
           </Space>
         </div>
         <div className="home-command-panel">
-          <div className="signal-row">
-            <span className="signal-icon">
-              <CloudUploadOutlined />
-            </span>
-            <span>
-              <Typography.Text strong>课件资料</Typography.Text>
-              <Typography.Text type="secondary">已进入知识库索引</Typography.Text>
-            </span>
-            <Tag color="green">在线</Tag>
-          </div>
-          <div className="signal-row">
-            <span className="signal-icon">
-              <RobotOutlined />
-            </span>
-            <span>
-              <Typography.Text strong>智能伴学</Typography.Text>
-              <Typography.Text type="secondary">可结合课程引用回答</Typography.Text>
-            </span>
-            <Tag color="blue">就绪</Tag>
-          </div>
-          <div className="signal-row">
-            <span className="signal-icon">
-              <CheckCircleOutlined />
-            </span>
-            <span>
-              <Typography.Text strong>学习记录</Typography.Text>
-              <Typography.Text type="secondary">自动沉淀关键行为</Typography.Text>
-            </span>
-            <Tag color="gold">同步</Tag>
-          </div>
+          {(statusItems.length ? statusItems : [
+            { label: "课件资料", status: "加载中", description: "正在读取状态", tone: "default" as const },
+            { label: "智能伴学", status: "加载中", description: "正在读取状态", tone: "default" as const },
+            { label: "学习记录", status: "加载中", description: "正在读取状态", tone: "default" as const }
+          ]).slice(0, 3).map((item) => (
+            <div className="signal-row" key={item.label}>
+              <span className="signal-icon">
+                {item.label.includes("智能") ? <RobotOutlined /> : item.label.includes("记录") ? <CheckCircleOutlined /> : <CloudUploadOutlined />}
+              </span>
+              <span>
+                <Typography.Text strong>{item.label}</Typography.Text>
+                <Typography.Text type="secondary">{item.description}</Typography.Text>
+              </span>
+              <Tag color={item.tone === "default" ? undefined : item.tone}>{item.status}</Tag>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -126,60 +175,41 @@ export function DashboardPage() {
       </Row>
 
       <Row className="section-row" gutter={[16, 16]}>
-        <Col lg={6} sm={12} xs={24}>
-          <Card className="metric-card">
-            <Statistic prefix={<BookOutlined />} title="已选课程" value={4} suffix="门" />
-          </Card>
-        </Col>
-        <Col lg={6} sm={12} xs={24}>
-          <Card className="metric-card">
-            <Statistic prefix={<RobotOutlined />} title="本周智能问答" value={18} suffix="次" />
-          </Card>
-        </Col>
-        <Col lg={6} sm={12} xs={24}>
-          <Card className="metric-card">
-            <Statistic prefix={<MessageOutlined />} title="论坛互动" value={9} suffix="条" />
-          </Card>
-        </Col>
-        <Col lg={6} sm={12} xs={24}>
-          <Card className="metric-card">
-            <Statistic prefix={<ReadOutlined />} title="学习完成率" value={68} suffix="%" />
-          </Card>
-        </Col>
+        {metrics.map((metric) => (
+          <Col key={metric.title} lg={6} sm={12} xs={24}>
+            <Card className="metric-card">
+              <Statistic prefix={metric.icon} title={metric.title} value={metric.value} suffix={metric.suffix} />
+            </Card>
+          </Col>
+        ))}
       </Row>
 
       <Row className="section-row" gutter={[16, 16]}>
         <Col lg={15} xs={24}>
           <Card title="最近学习进度">
-            <Space className="progress-list" direction="vertical" size="large">
-              <div>
-                <div className="progress-title">
-                  <Typography.Text strong>星际数学探险</Typography.Text>
-                  <Tag color="blue">进行中</Tag>
-                </div>
-                <Progress percent={72} />
-              </div>
-              <div>
-                <div className="progress-title">
-                  <Typography.Text strong>奇妙科学实验室</Typography.Text>
-                  <Tag color="green">良好</Tag>
-                </div>
-                <Progress percent={56} />
-              </div>
-              <div>
-                <div className="progress-title">
-                  <Typography.Text strong>编程创意课</Typography.Text>
-                  <Tag color="orange">待复习</Tag>
-                </div>
-                <Progress percent={41} />
-              </div>
-            </Space>
+            {isLoadingReport ? (
+              <Skeleton active paragraph={{ rows: 4 }} />
+            ) : progressItems.length ? (
+              <Space className="progress-list" direction="vertical" size="large">
+                {progressItems.map((item) => (
+                  <div key={item.id}>
+                    <div className="progress-title">
+                      <Typography.Text strong>{item.title}</Typography.Text>
+                      <Tag color={item.percent >= 80 ? "green" : item.percent >= 45 ? "blue" : "orange"}>{item.status_label}</Tag>
+                    </div>
+                    <Progress percent={item.percent} />
+                  </div>
+                ))}
+              </Space>
+            ) : (
+              <Typography.Text type="secondary">暂无最近进度，加入或创建课程后会显示在这里。</Typography.Text>
+            )}
           </Card>
         </Col>
         <Col lg={9} xs={24}>
           <Card title="今日建议">
             <List
-              dataSource={learningTasks}
+              dataSource={tasks}
               renderItem={(item) => (
                 <List.Item>
                   <Typography.Text>{item}</Typography.Text>

@@ -97,3 +97,55 @@ def test_assistant_stream_returns_meta_delta_and_done() -> None:
   assert '"type": "meta"' in events[0]
   assert '"content": "第一段"' in events[1]
   assert '"type": "done"' in events[-1]
+
+
+def test_assistant_session_history_is_user_scoped() -> None:
+  owner = User(id=101, username="owner_student", role="student", password_hash="unused", avatar_url=None)
+  other = User(id=202, username="other_student", role="student", password_hash="unused", avatar_url=None)
+
+  class FakeSession:
+    id = 9
+    user_id = owner.id
+    course_id = None
+    title = "owner session"
+
+  class FakeRepository:
+    def __init__(self) -> None:
+      self.created_for_user_id = 0
+
+    def get_session(self, session_id: int):
+      if session_id == 9:
+        return FakeSession()
+      if session_id == 10:
+        session = FakeSession()
+        session.id = 10
+        session.user_id = other.id
+        session.title = "新的伴学对话"
+        return session
+      return None
+
+    def get_latest_session(self, user_id: int, course_id=None):
+      assert user_id == other.id
+      return None
+
+    def create_session(self, user_id: int, title: str, course_id=None):
+      self.created_for_user_id = user_id
+      session = FakeSession()
+      session.id = 10
+      session.user_id = user_id
+      session.course_id = course_id
+      session.title = title
+      return session
+
+    def list_recent_messages(self, user_id: int, session_id: int, limit: int = 12):
+      assert user_id == other.id
+      assert session_id == 10
+      return []
+
+  service = AssistantChatService.__new__(AssistantChatService)
+  service.repository = FakeRepository()
+
+  response = service.get_current_session(other, session_id=9)
+
+  assert response.id == 10
+  assert response.messages == []

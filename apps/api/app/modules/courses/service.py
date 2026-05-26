@@ -29,6 +29,13 @@ class CourseService:
   def get_course(self, course_id: int, current_user: User | None = None) -> CourseResponse:
     course = self._get_course_or_404(course_id)
     self._ensure_course_visible(course, current_user)
+    if current_user and current_user.role == "student":
+      LearningRecordService(self.repository.db).record_event(
+        current_user,
+        "course_viewed",
+        course_id=course.id,
+        metadata={"course_title": course.title},
+      )
     return self._build_course_response(course, current_user)
 
   def _get_course_or_404(self, course_id: int) -> Course:

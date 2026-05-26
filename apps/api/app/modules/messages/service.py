@@ -26,7 +26,16 @@ class MessageService:
 
   def list_student_recipients(self, current_user: User) -> list[StudentRecipientResponse]:
     self._ensure_mentor(current_user)
-    return [StudentRecipientResponse.model_validate(student) for student in self.repository.list_students()]
+    return [
+      StudentRecipientResponse(
+        id=student.id,
+        username=student.username,
+        avatar_url=student.avatar_url,
+        course_id=course_id,
+        course_title=course_title,
+      )
+      for student, course_id, course_title in self.repository.list_students_for_teacher_courses(current_user.id)
+    ]
 
   def mark_as_read(self, message_id: int, current_user: User) -> UserMessageResponse:
     message = self.repository.get_message(message_id)
@@ -39,9 +48,16 @@ class MessageService:
 
   def send_private_message(self, payload: PrivateMessageCreate, current_user: User) -> UserMessageResponse:
     self._ensure_mentor(current_user)
+    if payload.course_id is None:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请选择课程后再发送私信")
+    course = self.repository.get_owned_course(payload.course_id, current_user.id)
+    if course is None:
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="课程不存在或无权发送")
     recipient = self.repository.get_user_by_username(payload.recipient_username.strip().lower())
     if recipient is None or recipient.role != "student":
       raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="学生不存在")
+    if self.repository.get_student_enrollment(course.id, recipient.id) is None:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="只能给本课程学生发送私信")
 
     message = self.repository.create_message(
       recipient_id=recipient.id,
@@ -51,13 +67,19 @@ class MessageService:
       message_type="private",
       title=payload.title,
       content=payload.content,
-      source_type="private_message",
+      source_type="course_private",
+      source_id=course.id,
     )
     return self._to_response(message)
 
   def send_announcement(self, payload: AnnouncementCreate, current_user: User) -> AnnouncementResult:
     self._ensure_mentor(current_user)
-    students = self.repository.list_students()
+    if payload.course_id is None:
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请选择课程后再发布公告")
+    course = self.repository.get_owned_course(payload.course_id, current_user.id)
+    if course is None:
+      raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="课程不存在或无权发送")
+    students = self.repository.list_students_for_course(course.id, current_user.id)
     messages = [
       UserMessage(
         recipient_id=student.id,
@@ -67,7 +89,8 @@ class MessageService:
         message_type="announcement",
         title=payload.title,
         content=payload.content,
-        source_type="announcement",
+        source_type="course_announcement",
+        source_id=course.id,
       )
       for student in students
     ]

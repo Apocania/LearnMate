@@ -1,43 +1,19 @@
-import { DownloadOutlined, RobotOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
-import { Alert, Avatar, Button, Input, Select, Space, Tag, Typography } from "antd";
+import { DeleteOutlined, DownloadOutlined, PlusOutlined, RobotOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
+import { Alert, Avatar, Button, Input, Popconfirm, Select, Space, Tag, Typography, message } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { AssistantMessageResponse, streamAssistantMessage } from "../api/assistant";
+import {
+  AssistantMessageResponse,
+  createAssistantSession,
+  getCurrentAssistantSession,
+  streamAssistantMessage
+} from "../api/assistant";
 import { getApiBaseUrl } from "../api/client";
 import { Course, listCourses } from "../api/courses";
 import { PageHeader } from "../components/PageHeader";
 import { UserAvatar } from "../components/UserAvatar";
+import { renderMarkdown } from "../shared/utils/markdown";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
-
-const starterMessages: ChatMessage[] = [
-  {
-    id: "welcome",
-    role: "assistant",
-    author: "LearnMate",
-    content: "你好，我可以结合已上传的课程资料回答问题，也可以帮你整理复习建议。"
-  },
-  {
-    id: "sample-user",
-    role: "user",
-    author: "示例学生",
-    content: "3/4 和 2/3 谁的星球能量更多？"
-  },
-  {
-    id: "sample-assistant",
-    role: "assistant",
-    author: "LearnMate",
-    content: "可以先把两个分数通分成 9/12 和 8/12，所以 3/4 更大。也可以画两个一样大的能量饼，把每份平均切开后再比较涂色部分。",
-    citations: [
-      {
-        document_id: "demo-space",
-        title: "星际数学探险-任务卡.txt",
-        chunk_index: 1,
-        snippet: "比较分数时，先看分母代表被分成几份，再看分子代表拿到几份。",
-        source_url: null
-      }
-    ]
-  }
-];
 
 type ChatMessage = {
   id: string;
@@ -52,9 +28,11 @@ export function AssistantPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<number | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(starterMessages);
+  const [chatMode, setChatMode] = useState<"qa" | "plan">("qa");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const assistantStatus = useMemo(() => (isSending ? "正在生成..." : "在线"), [isSending]);
 
@@ -68,6 +46,31 @@ export function AssistantPage() {
     }
     void refreshCourses();
   }, []);
+
+  useEffect(() => {
+    async function refreshHistory() {
+      if (!currentUser) {
+        setChatMessages([]);
+        return;
+      }
+      try {
+        const session = await getCurrentAssistantSession({ course_id: selectedCourseId });
+        setSessionId(session.id);
+        setChatMessages(
+          session.messages.map((item) => ({
+            id: String(item.id),
+            role: item.role,
+            author: item.role === "assistant" ? "LearnMate" : currentUser.username,
+            content: item.content,
+            citations: item.citations
+          }))
+        );
+      } catch {
+        setChatMessages([]);
+      }
+    }
+    void refreshHistory();
+  }, [currentUser?.id, selectedCourseId]);
 
   useEffect(() => {
     const element = messageListRef.current;
@@ -92,7 +95,7 @@ export function AssistantPage() {
     setIsSending(true);
     try {
       await streamAssistantMessage(
-        { content, course_id: selectedCourseId, session_id: sessionId },
+        { content, course_id: selectedCourseId, session_id: sessionId, mode: chatMode },
         {
           onMeta: (event) => {
             setSessionId(event.session_id ?? sessionId);
@@ -125,6 +128,24 @@ export function AssistantPage() {
     }
   }
 
+  async function handleStartNewSession() {
+    if (!currentUser) {
+      return;
+    }
+    setIsCreatingSession(true);
+    try {
+      const session = await createAssistantSession({ course_id: selectedCourseId });
+      setSessionId(session.id);
+      setChatMessages([]);
+      setInput("");
+      message.success("已开始新的对话");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "新建对话失败");
+    } finally {
+      setIsCreatingSession(false);
+    }
+  }
+
   function resolveSourceUrl(url?: string | null) {
     if (!url) {
       return undefined;
@@ -147,11 +168,19 @@ export function AssistantPage() {
       <section className="discord-chat-shell" aria-label="智能伴学聊天">
         <aside className="chat-sidebar">
           <Typography.Text className="chat-sidebar-label">频道</Typography.Text>
-          <button className="chat-channel active" type="button">
+          <button
+            className={chatMode === "qa" ? "chat-channel active" : "chat-channel"}
+            type="button"
+            onClick={() => setChatMode("qa")}
+          >
             <RobotOutlined />
             <span>课程答疑</span>
           </button>
-          <button className="chat-channel" type="button">
+          <button
+            className={chatMode === "plan" ? "chat-channel active" : "chat-channel"}
+            type="button"
+            onClick={() => setChatMode("plan")}
+          >
             <UserOutlined />
             <span>学习规划</span>
           </button>
@@ -171,15 +200,51 @@ export function AssistantPage() {
         <div className="chat-main">
           <div className="chat-main-header">
             <Space direction="vertical" size={2}>
-              <Typography.Title level={4}>课程答疑</Typography.Title>
+              <Typography.Title level={4}>{chatMode === "qa" ? "课程答疑" : "学习规划"}</Typography.Title>
               <Typography.Text type="secondary">
-                {selectedCourseId ? "优先检索所选课程的课件资料，并在回答下方显示引用。" : "未选择课程时，会在全局资料中检索可用内容。"}
+                {chatMode === "plan"
+                  ? "围绕所选课程生成学习路径、今日任务和复习建议。"
+                  : selectedCourseId
+                    ? "优先检索所选课程的课件资料，并在回答下方显示引用。"
+                    : "未选择课程时，会在全局资料中检索可用内容。"}
               </Typography.Text>
             </Space>
             <span className={isSending ? "presence typing" : "presence"}>{assistantStatus}</span>
+            <Popconfirm
+              cancelText="取消"
+              disabled={!currentUser || isSending}
+              okText="开始"
+              onConfirm={() => void handleStartNewSession()}
+              title="清空当前窗口并开始新一轮对话？"
+            >
+              <Button
+                disabled={!currentUser || isSending}
+                icon={chatMessages.length ? <DeleteOutlined /> : <PlusOutlined />}
+                loading={isCreatingSession}
+              >
+                新对话
+              </Button>
+            </Popconfirm>
           </div>
 
           <div className="chat-message-list" ref={messageListRef}>
+            {chatMessages.length === 0 ? (
+              <article className="chat-message">
+                <Avatar className="chat-avatar" icon={<RobotOutlined />} />
+                <div className="chat-message-body">
+                  <div className="chat-message-meta">
+                    <Typography.Text strong>LearnMate</Typography.Text>
+                    <Typography.Text type="secondary">现在</Typography.Text>
+                  </div>
+                  <div
+                    className="chat-markdown markdown-preview"
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown("你好，我可以结合课程资料回答问题，也可以帮你整理学习规划。选择课程后，回答会更贴近你的学习内容。")
+                    }}
+                  />
+                </div>
+              </article>
+            ) : null}
             {chatMessages.map((message) => (
               <article className={message.role === "user" ? "chat-message user" : "chat-message"} key={message.id}>
                 {message.role === "user" ? (
@@ -197,9 +262,12 @@ export function AssistantPage() {
                     <Typography.Text strong>{message.author}</Typography.Text>
                     <Typography.Text type="secondary">刚刚</Typography.Text>
                   </div>
-                  <Typography.Paragraph>
-                    {message.content || (message.role === "assistant" && isSending ? "正在整理回答..." : "")}
-                  </Typography.Paragraph>
+                  <div
+                    className="chat-markdown markdown-preview"
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(message.content || (message.role === "assistant" && isSending ? "正在整理回答..." : ""))
+                    }}
+                  />
                   {message.citations?.length ? (
                     <Space className="citation-list" direction="vertical" size={8}>
                       {message.citations.map((citation) => (
@@ -241,7 +309,7 @@ export function AssistantPage() {
                   void handleSend();
                 }
               }}
-              placeholder={currentUser ? "向课程答疑发送消息" : "登录后可以发送消息"}
+              placeholder={currentUser ? (chatMode === "qa" ? "向课程答疑发送消息" : "描述你的学习目标或困惑") : "登录后可以发送消息"}
               value={input}
             />
             <Button

@@ -14,6 +14,13 @@ export type TeachingCourseSummary = {
   file_count: number;
 };
 
+export type RecentCourseProgress = {
+  id: number;
+  title: string;
+  percent: number;
+  status_label: string;
+};
+
 export type MyLearningReport = {
   user_id: number;
   username: string;
@@ -28,10 +35,12 @@ export type MyLearningReport = {
   student_count: number;
   chapter_count: number;
   course_summaries: TeachingCourseSummary[];
-  estimated_study_hours: number;
+  study_hours: number;
   progress: LearningProgressItem[];
   recent_activities: string[];
   suggestions: string[];
+  recent_course_progress: RecentCourseProgress[];
+  daily_tasks: string[];
 };
 
 export function getMyLearningReports() {

@@ -9,6 +9,7 @@ from app.modules.auth.dependencies import get_current_user, get_optional_current
 from app.modules.auth.models import User
 from app.modules.files.schemas import FileAssetResponse
 from app.modules.files.service import FileService
+from app.modules.learning_records.service import LearningRecordService
 
 router = APIRouter()
 
@@ -43,6 +44,13 @@ def download_file(
 ) -> FileResponse:
   service = FileService(db)
   file_asset = service.get_file(file_id, current_user)
+  if current_user is not None:
+    LearningRecordService(db).record_event(
+      current_user,
+      "file_downloaded",
+      course_id=file_asset.course_id,
+      metadata={"file_name": file_asset.original_name},
+    )
   if file_asset.storage_provider == "local":
     _, path = service.get_file_path(file_id, current_user)
     return FileResponse(

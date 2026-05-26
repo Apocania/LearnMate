@@ -25,12 +25,14 @@ class UserMessageResponse(BaseModel):
 
 
 class PrivateMessageCreate(BaseModel):
+  course_id: int | None = None
   recipient_username: str = Field(min_length=3, max_length=32)
   title: str = Field(min_length=1, max_length=80)
   content: str = Field(min_length=1, max_length=1000)
 
 
 class AnnouncementCreate(BaseModel):
+  course_id: int | None = None
   title: str = Field(min_length=1, max_length=80)
   content: str = Field(min_length=1, max_length=1200)
 
@@ -47,5 +49,5 @@ class StudentRecipientResponse(BaseModel):
   id: int
   username: str
   avatar_url: str | None = None
-
-  model_config = {"from_attributes": True}
+  course_id: int
+  course_title: str

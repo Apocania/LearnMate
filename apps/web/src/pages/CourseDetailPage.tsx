@@ -30,7 +30,7 @@ import {
   message
 } from "antd";
 import type { UploadProps } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -48,6 +48,7 @@ import {
   updateCourseChapter
 } from "../api/courses";
 import { FileAsset, getFileDownloadUrl, listFiles, uploadFile } from "../api/files";
+import { updateCourseProgress } from "../api/learningRecords";
 import { PageHeader } from "../components/PageHeader";
 import { formatCourseStatus } from "../shared/utils/displayText";
 import { useCurrentUser } from "../shared/utils/useCurrentUser";
@@ -72,6 +73,9 @@ export function CourseDetailPage() {
   const [uploadingChapterId, setUploadingChapterId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const pendingStudySecondsRef = useRef(0);
+  const lastTickRef = useRef(Date.now());
+  const maxProgressRef = useRef(0);
   const isStudent = currentUser?.role === "student";
   const isCourseOwner = currentUser?.role === "mentor" && currentUser.id === course?.teacher_id;
 
@@ -110,6 +114,74 @@ export function CourseDetailPage() {
   useEffect(() => {
     void refreshCourseBundle();
   }, [numericCourseId]);
+
+  const calculateScrollProgress = useCallback(() => {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const documentHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    return Math.min(100, Math.max(0, Math.round(((scrollTop + viewportHeight) / documentHeight) * 100)));
+  }, []);
+
+  const flushCourseProgress = useCallback(async () => {
+    if (!isStudent || !course?.joined_by_me || !Number.isInteger(numericCourseId)) {
+      pendingStudySecondsRef.current = 0;
+      return;
+    }
+
+    const studySecondsDelta = pendingStudySecondsRef.current;
+    const progressPercent = Math.max(maxProgressRef.current, calculateScrollProgress());
+    if (studySecondsDelta <= 0 && progressPercent <= 0) {
+      return;
+    }
+
+    pendingStudySecondsRef.current = 0;
+    maxProgressRef.current = progressPercent;
+    try {
+      await updateCourseProgress({
+        course_id: numericCourseId,
+        progress_percent: progressPercent,
+        study_seconds_delta: studySecondsDelta,
+        last_position: `scroll:${progressPercent}`
+      });
+    } catch {
+      pendingStudySecondsRef.current += studySecondsDelta;
+    }
+  }, [calculateScrollProgress, course?.joined_by_me, isStudent, numericCourseId]);
+
+  useEffect(() => {
+    if (!isStudent || !course?.joined_by_me) {
+      return;
+    }
+
+    lastTickRef.current = Date.now();
+    maxProgressRef.current = calculateScrollProgress();
+    const handleScroll = () => {
+      maxProgressRef.current = Math.max(maxProgressRef.current, calculateScrollProgress());
+    };
+    const handleBeforeUnload = () => {
+      void flushCourseProgress();
+    };
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      if (document.visibilityState === "visible") {
+        pendingStudySecondsRef.current += Math.min(30, Math.max(0, Math.round((now - lastTickRef.current) / 1000)));
+        maxProgressRef.current = Math.max(maxProgressRef.current, calculateScrollProgress());
+      }
+      lastTickRef.current = now;
+      if (pendingStudySecondsRef.current >= 30) {
+        void flushCourseProgress();
+      }
+    }, 10000);
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      void flushCourseProgress();
+    };
+  }, [calculateScrollProgress, course?.joined_by_me, flushCourseProgress, isStudent]);
 
   async function refreshChaptersAndFiles() {
     const [nextChapters, nextFiles] = await Promise.all([

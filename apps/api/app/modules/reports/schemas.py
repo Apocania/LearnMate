@@ -15,6 +15,13 @@ class TeachingCourseSummary(BaseModel):
   file_count: int
 
 
+class RecentCourseProgress(BaseModel):
+  id: int
+  title: str
+  percent: int
+  status_label: str
+
+
 class MyLearningReport(BaseModel):
   user_id: int
   username: str
@@ -29,7 +36,9 @@ class MyLearningReport(BaseModel):
   student_count: int = 0
   chapter_count: int = 0
   course_summaries: list[TeachingCourseSummary] = []
-  estimated_study_hours: float
+  study_hours: float
   progress: list[LearningProgressItem]
   recent_activities: list[str]
   suggestions: list[str]
+  recent_course_progress: list[RecentCourseProgress] = []
+  daily_tasks: list[str] = []
