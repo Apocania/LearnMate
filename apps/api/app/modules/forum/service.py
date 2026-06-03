@@ -21,7 +21,6 @@ from app.modules.learning_records.service import LearningRecordService
 
 FORUM_ATTACHMENT_PREFIX = "forum-attachments"
 LEGACY_FORUM_ATTACHMENT_DIR = Path(__file__).resolve().parents[3] / "storage" / "forum-attachments"
-FORUM_ATTACHMENT_TYPES = settings.upload_allowed_types | {"image/webp", "text/markdown"}
 MAX_FORUM_ATTACHMENTS = 5
 
 
@@ -233,9 +232,12 @@ class ForumService:
     attachments: list[dict[str, str | int]] = []
     for upload in real_uploads:
       original_name = upload.filename or "unnamed-file"
-      content_type = upload.content_type or "application/octet-stream"
-      if content_type not in FORUM_ATTACHMENT_TYPES:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"不支持的附件类型：{content_type}")
+      content_type = settings.normalize_upload_content_type(upload.content_type)
+      if not settings.is_upload_allowed(original_name, content_type):
+        raise HTTPException(
+          status_code=status.HTTP_400_BAD_REQUEST,
+          detail=f"不支持的附件类型：{content_type}",
+        )
 
       content = await upload.read()
       if len(content) > settings.upload_max_size_bytes:

@@ -78,6 +78,7 @@ export function CourseDetailPage() {
   const maxProgressRef = useRef(0);
   const isStudent = currentUser?.role === "student";
   const isCourseOwner = currentUser?.role === "mentor" && currentUser.id === course?.teacher_id;
+  const commonFiles = useMemo(() => files.filter((file) => file.chapter_id == null), [files]);
 
   const numericCourseId = useMemo(() => Number(courseId), [courseId]);
 
@@ -363,6 +364,34 @@ export function CourseDetailPage() {
             }
             title="章节与课件"
           >
+            <div className="course-common-file-panel">
+              <div className="chapter-heading">
+                <Space wrap>
+                  <Tag color="purple">通用</Tag>
+                  <Typography.Text strong>课程通用课件</Typography.Text>
+                  <Typography.Text type="secondary">{commonFiles.length} 份</Typography.Text>
+                </Space>
+                {isCourseOwner ? (
+                  <Upload customRequest={createUploadRequest(null)} maxCount={1} showUploadList={false}>
+                    <Button icon={<FileAddOutlined />} loading={uploadingChapterId === 0}>
+                      上传课程通用课件
+                    </Button>
+                  </Upload>
+                ) : null}
+              </div>
+              <Space className="chapter-file-row course-common-file-row" wrap>
+                {commonFiles.length ? (
+                  commonFiles.map((file) => (
+                    <Button href={getFileDownloadUrl(file)} icon={<DownloadOutlined />} key={file.id} target="_blank">
+                      {file.original_name}
+                    </Button>
+                  ))
+                ) : (
+                  <Typography.Text type="secondary">暂无通用课件</Typography.Text>
+                )}
+              </Space>
+            </div>
+
             <List
               className="chapter-list"
               dataSource={chapters}
@@ -417,13 +446,6 @@ export function CourseDetailPage() {
                 );
               }}
             />
-            {isCourseOwner ? (
-              <Upload customRequest={createUploadRequest(null)} maxCount={1} showUploadList={false}>
-                <Button className="section-row" icon={<FileAddOutlined />} loading={uploadingChapterId === 0}>
-                  上传课程通用课件
-                </Button>
-              </Upload>
-            ) : null}
           </Card>
         </Col>
         <Col lg={8} xs={24}>

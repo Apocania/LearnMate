@@ -44,8 +44,8 @@ class FileService:
   ) -> FileAssetResponse:
     self._ensure_course_context(course_id, chapter_id, current_user)
     original_name = upload.filename or "unnamed-file"
-    content_type = upload.content_type or "application/octet-stream"
-    if content_type not in settings.upload_allowed_types:
+    content_type = settings.normalize_upload_content_type(upload.content_type)
+    if not settings.is_upload_allowed(original_name, content_type):
       raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不支持的文件类型")
 
     suffix = Path(original_name).suffix

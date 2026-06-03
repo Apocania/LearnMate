@@ -1213,6 +1213,17 @@ textarea {
   -webkit-line-clamp: 3;
 }
 
+.course-common-file-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 2px solid #ffffff;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff, #f8f6ff);
+  box-shadow: 0 10px 20px rgba(90, 106, 130, 0.08);
+}
+
 .chapter-list .ant-list-items {
   display: grid;
   gap: 12px;
@@ -1255,6 +1266,12 @@ textarea {
   min-height: 34px;
   max-height: 76px;
   overflow: hidden;
+}
+
+.course-common-file-row {
+  max-height: 132px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .chapter-content .ant-typography-secondary {

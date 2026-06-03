@@ -28,8 +28,9 @@ http://localhost:8000/docs
 上传相关默认值：
 
 ```text
-UPLOAD_MAX_SIZE_MB=20
-UPLOAD_ALLOWED_TYPES=application/pdf,image/png,image/jpeg,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document
+UPLOAD_MAX_SIZE_MB=200
+UPLOAD_ALLOWED_TYPES=application/pdf,image/png,image/jpeg,image/webp,text/plain,text/markdown,text/csv,application/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip,application/x-zip-compressed,video/mp4
+UPLOAD_ALLOWED_EXTENSIONS=.pdf,.png,.jpg,.jpeg,.webp,.txt,.md,.csv,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.mp4
 STORAGE_BACKEND=local
 ```
 
